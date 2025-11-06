@@ -5,6 +5,7 @@ import {
   getDoc,
   getDocs,
   updateDoc,
+  setDoc,
   deleteDoc,
   query,
   where,
@@ -58,6 +59,32 @@ export class FirestoreService {
       return docRef.id;
     } catch (error) {
       console.error("Create document error:", error);
+      throw error;
+    }
+  }
+
+  // Create a new document with custom ID
+  static async createWithId<T extends Record<string, unknown>>(
+    collectionName: string,
+    id: string,
+    data: T
+  ) {
+    try {
+      if (!db) {
+        throw new Error('Firestore database instance is not initialized');
+      }
+      
+      const docRef = doc(db, collectionName, id);
+      
+      await setDoc(docRef, {
+        ...data,
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+      });
+      
+      return id;
+    } catch (error) {
+      console.error("Create document with ID error:", error);
       throw error;
     }
   }

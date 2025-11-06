@@ -22,6 +22,14 @@ export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 
+// Debug: Check if services are initialized
+console.log('Firebase services initialized:', {
+  auth: !!auth,
+  db: !!db,
+  storage: !!storage,
+  dbApp: db?.app?.name,
+});
+
 // Initialize Analytics (only on client side)
 export const analytics = typeof window !== "undefined" ? getAnalytics(app) : null;
 
