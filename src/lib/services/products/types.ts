@@ -3,6 +3,7 @@ import { BaseEntity } from "../common/types";
 export interface Product extends BaseEntity {
   name: string;
   description: string;
+  costPrice: number;
   price: number;
   salePrice?: number;
   sku: string;
@@ -38,6 +39,8 @@ export interface Product extends BaseEntity {
   metaTitle?: string;
   metaDescription?: string;
   metaKeywords?: string[];
+  taxable: boolean;
+  collections: string[];
 }
 
 export interface ProductFilter {
