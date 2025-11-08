@@ -2,63 +2,181 @@
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import { ProductService, Product } from "@/lib";
 import React, { useEffect, useState } from "react";
+import ProductsTable from "@/components/products/ProductsTable";
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filters, setFilters] = useState({
+    brand: "",
+    category: "",
+    isActive: "all",
+    isFeatured: "all"
+  });
+  const [lastDoc, setLastDoc] = useState<unknown>(null);
+  const [, setHasMore] = useState(false);
+  const pageSize = 10;
 
   useEffect(() => {
-    loadProducts();
-  }, []);
+    loadProducts(true);
+  }, [currentPage, searchTerm, filters]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const loadProducts = async () => {
+  const loadProducts = async (reset = false) => {
     try {
       setLoading(true);
-      const response = await ProductService.getProducts();
-      if (response.success && response.data) {
-        setProducts(response.data);
+      let response;
+
+      if (searchTerm) {
+        response = await ProductService.searchProducts(searchTerm);
+        if (response.success && response.data) {
+          setProducts(response.data);
+          setTotalPages(Math.ceil(response.data.length / pageSize));
+          setHasMore(false);
+        }
       } else {
+        const productFilter = {
+          ...(filters.brand && { brand: filters.brand }),
+          ...(filters.category && { categoryId: filters.category }),
+          ...(filters.isActive !== "all" && { isActive: filters.isActive === "true" }),
+          ...(filters.isFeatured !== "all" && { isFeatured: filters.isFeatured === "true" })
+        };
+
+        response = await ProductService.getProductsPaginated(
+          pageSize,
+          reset ? undefined : lastDoc,
+          Object.keys(productFilter).length > 0 ? productFilter : undefined
+        );
+
+        if (response.success && response.data) {
+          setProducts(response.data.data);
+          setHasMore(response.data.hasMore);
+          setLastDoc(response.data.lastDoc);
+          // For pagination, we'll estimate total pages based on current data
+          // In a real implementation, you might want to get total count separately
+          setTotalPages(currentPage + (response.data.hasMore ? 1 : 0));
+        }
+      }
+
+      if (!response.success) {
         setError(response.error || "Failed to load products");
       }
-    } catch (err) {
+    } catch {
       setError("An error occurred while loading products");
     } finally {
       setLoading(false);
     }
   };
 
+  const handleRefresh = () => {
+    loadProducts(true);
+  };
+
+  const handleSearch = (term: string) => {
+    setSearchTerm(term);
+    setCurrentPage(1);
+  };
+
+  const handleFilterChange = (newFilters: typeof filters) => {
+    setFilters(newFilters);
+    setCurrentPage(1);
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
   const addSampleProduct = async () => {
     try {
-      const sampleProduct = {
-        name: "Lavender Dreams Perfume",
-        description: "A calming lavender-based fragrance perfect for evening wear",
-        price: 89.99,
-        sku: `LAV-${Date.now()}`,
-        categoryId: "perfumes",
-        brand: "Everything Scents",
-        images: ["/images/product/lavender-perfume.jpg"],
-        stock: 25,
-        minStock: 5,
-        tags: ["lavender", "floral", "evening", "calming"],
-        isActive: true,
-        isFeatured: true,
-        scentProfile: {
-          topNotes: ["Bergamot", "Lemon"],
-          middleNotes: ["Lavender", "Rose"],
-          baseNotes: ["Sandalwood", "Musk"]
+      const sampleProducts = [
+        {
+          name: "Lavender Dreams Perfume",
+          description: "A calming lavender-based fragrance perfect for evening wear",
+          price: 89.99,
+          sku: `LAV-${Date.now()}`,
+          categoryId: "perfumes",
+          brand: "Everything Scents",
+          images: ["/images/product/product-01.jpg"],
+          stock: 25,
+          minStock: 5,
+          tags: ["lavender", "floral", "evening", "calming"],
+          isActive: true,
+          isFeatured: true,
+          scentProfile: {
+            topNotes: ["Bergamot", "Lemon"],
+            middleNotes: ["Lavender", "Rose"],
+            baseNotes: ["Sandalwood", "Musk"]
+          },
+          scentType: "perfume" as const,
+          size: "50ml",
+          gender: "unisex" as const,
+          season: "year-round" as const,
+          longevity: "long-lasting" as const,
+          sillage: "moderate" as const,
         },
-        scentType: "perfume" as const,
-        size: "50ml",
-        gender: "unisex" as const,
-        season: "year-round" as const,
-        longevity: "long-lasting" as const,
-        sillage: "moderate" as const,
-      };
+        {
+          name: "Ocean Breeze Cologne",
+          description: "Fresh aquatic fragrance with marine and citrus notes",
+          price: 65.99,
+          salePrice: 49.99,
+          sku: `OCN-${Date.now() + 1}`,
+          categoryId: "colognes",
+          brand: "Everything Scents",
+          images: ["/images/product/product-02.jpg"],
+          stock: 15,
+          minStock: 10,
+          tags: ["ocean", "fresh", "citrus", "summer"],
+          isActive: true,
+          isFeatured: false,
+          scentProfile: {
+            topNotes: ["Lemon", "Sea Salt", "Bergamot"],
+            middleNotes: ["Marine Accord", "Jasmine"],
+            baseNotes: ["White Musk", "Cedar"]
+          },
+          scentType: "cologne" as const,
+          size: "100ml",
+          gender: "men" as const,
+          season: "summer" as const,
+          longevity: "moderate" as const,
+          sillage: "moderate" as const,
+        },
+        {
+          name: "Vanilla Sunset Candle",
+          description: "Warm vanilla candle with amber and sandalwood undertones",
+          price: 34.99,
+          sku: `VAN-${Date.now() + 2}`,
+          categoryId: "candles",
+          brand: "Everything Scents",
+          images: ["/images/product/product-03.jpg"],
+          stock: 3,
+          minStock: 5,
+          tags: ["vanilla", "candle", "warm", "cozy"],
+          isActive: true,
+          isFeatured: true,
+          scentProfile: {
+            topNotes: ["Vanilla Bean"],
+            middleNotes: ["Amber", "Honey"],
+            baseNotes: ["Sandalwood", "Musk"]
+          },
+          scentType: "candle" as const,
+          size: "8oz",
+          gender: "unisex" as const,
+          season: "fall" as const,
+          longevity: "long-lasting" as const,
+          sillage: "strong" as const,
+        }
+      ];
+
+      // Add one random sample product
+      const randomIndex = Math.floor(Math.random() * sampleProducts.length);
+      const sampleProduct = sampleProducts[randomIndex];
 
       const response = await ProductService.createProduct(sampleProduct);
       if (response.success) {
-        await loadProducts(); // Refresh the list
+        await loadProducts(true); // Refresh the list
         alert("Sample product added successfully!");
       } else {
         alert(response.error || "Failed to add product");
@@ -67,6 +185,7 @@ export default function ProductsPage() {
       alert("An error occurred while adding the product");
     }
   };
+
   if (loading) {
     return (
       <div>
@@ -99,58 +218,20 @@ export default function ProductsPage() {
           </div>
         )}
 
-        <div className="mb-6 flex gap-4">
-          <button 
-            onClick={loadProducts}
-            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-          >
-            Refresh Products
-          </button>
-          <button 
-            onClick={addSampleProduct}
-            className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
-          >
-            Add Sample Product
-          </button>
-        </div>
-
-        {products.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-gray-500 dark:text-gray-400">
-              No products found. Add some products to get started.
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {products.map((product) => (
-              <div key={product.id} className="p-6 border border-gray-200 rounded-lg dark:border-gray-700">
-                <h4 className="font-semibold text-gray-800 dark:text-white mb-2">
-                  {product.name}
-                </h4>
-                <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
-                  {product.description}
-                </p>
-                <div className="flex justify-between items-center">
-                  <span className="text-lg font-bold text-blue-600">
-                    ${product.price.toFixed(2)}
-                  </span>
-                  <span className="text-sm text-gray-500">
-                    Stock: {product.stock}
-                  </span>
-                </div>
-                <div className="mt-2">
-                  <span className={`px-2 py-1 text-xs rounded-full ${
-                    product.isActive 
-                      ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' 
-                      : 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
-                  }`}>
-                    {product.isActive ? 'Active' : 'Inactive'}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+        <ProductsTable
+          products={products}
+          loading={loading}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          searchTerm={searchTerm}
+          filters={filters}
+          onSearch={handleSearch}
+          onFilterChange={handleFilterChange}
+          onPageChange={handlePageChange}
+          onRefresh={handleRefresh}
+          onAddProduct={addSampleProduct}
+          onProductUpdate={() => loadProducts(true)}
+        />
       </div>
     </div>
   );

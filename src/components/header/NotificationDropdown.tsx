@@ -35,7 +35,7 @@ export default function NotificationDropdown() {
           <span className="absolute inline-flex w-full h-full bg-orange-400 rounded-full opacity-75 animate-ping"></span>
         </span>
         <svg
-          className="fill-current"
+          className={`fill-current ${notifying ? "animate-bounce" : ""}`}
           width="20"
           height="20"
           viewBox="0 0 20 20"

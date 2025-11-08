@@ -165,6 +165,39 @@ const AppHeader: React.FC = () => {
             <ThemeToggleButton />
             {/* <!-- Dark Mode Toggler --> */}
 
+            {/* <!-- Message Icon --> */}
+            <div className="relative">
+              <button className="flex items-center justify-center w-10 h-10 text-gray-500 rounded-lg hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M20 4H4C2.89543 4 2 4.89543 2 6V18C2 19.1046 2.89543 20 4 20H20C21.1046 20 22 19.1046 22 18V6C22 4.89543 21.1046 4 20 4Z"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M22 6L12 13L2 6"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
+              {/* Bouncing notification badge */}
+              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-xs font-medium text-white animate-bounce">
+                1
+              </span>
+            </div>
+            {/* <!-- Message Icon End --> */}
+
            <NotificationDropdown /> 
             {/* <!-- Notification Menu Area --> */}
           </div>

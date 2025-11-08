@@ -1,3 +1,5 @@
+"use client";
+import React, { useState, useEffect } from "react";
 import {
   Table,
   TableBody,
@@ -20,8 +22,12 @@ interface Product {
   status: "Delivered" | "Pending" | "Canceled"; // Status of the product
 }
 
-// Define the table data using the interface
-const tableData: Product[] = [
+// Constants for data limiting
+const DEFAULT_LIMIT = 5;
+const MAX_LIMIT = 15;
+
+// Sample data pool (in production, this would come from your database)
+const allOrdersData: Product[] = [
   {
     id: 1,
     name: "MacBook Pro 13”",
@@ -67,9 +73,78 @@ const tableData: Product[] = [
     status: "Delivered",
     image: "/images/product/product-05.jpg", // Replace with actual image URL
   },
+  // Additional sample data to demonstrate limiting
+  {
+    id: 6,
+    name: "Tom Ford Black Orchid",
+    variants: "1 Variant",
+    category: "Perfume",
+    price: "$195.00",
+    status: "Delivered",
+    image: "/images/product/product-01.jpg",
+  },
+  {
+    id: 7,
+    name: "Creed Aventus 100ml",
+    variants: "2 Variants",
+    category: "Perfume",
+    price: "$325.00",
+    status: "Pending",
+    image: "/images/product/product-02.jpg",
+  },
+  {
+    id: 8,
+    name: "Chanel Bleu 150ml",
+    variants: "3 Variants", 
+    category: "Cologne",
+    price: "$180.00",
+    status: "Delivered",
+    image: "/images/product/product-03.jpg",
+  }
 ];
 
+// Simulate fetching recent orders with limit
+const fetchRecentOrders = async (limit: number = DEFAULT_LIMIT): Promise<Product[]> => {
+  // In production, this would be a real API call with SQL LIMIT or similar
+  // Example: SELECT * FROM orders ORDER BY created_at DESC LIMIT ${limit}
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve(allOrdersData.slice(0, limit));
+    }, 100); // Simulate network delay
+  });
+};
+
 export default function RecentOrders() {
+  const [orders, setOrders] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [currentLimit, setCurrentLimit] = useState(DEFAULT_LIMIT);
+  const [showAll, setShowAll] = useState(false);
+
+  useEffect(() => {
+    loadOrders();
+  }, [currentLimit]);
+
+  const loadOrders = async () => {
+    setLoading(true);
+    try {
+      const data = await fetchRecentOrders(currentLimit);
+      setOrders(data);
+    } catch (error) {
+      console.error("Error fetching orders:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSeeAll = () => {
+    if (showAll) {
+      setCurrentLimit(DEFAULT_LIMIT);
+      setShowAll(false);
+    } else {
+      setCurrentLimit(MAX_LIMIT);
+      setShowAll(true);
+    }
+  };
   return (
     <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white px-4 pb-3 pt-4 dark:border-gray-800 dark:bg-white/[0.03] sm:px-6">
       <div className="flex flex-col gap-2 mb-4 sm:flex-row sm:items-center sm:justify-between">
@@ -118,47 +193,60 @@ export default function RecentOrders() {
             </svg>
             Filter
           </button>
-          <button className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-theme-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200">
-            See all
+          <button 
+            onClick={handleSeeAll}
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-theme-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200"
+          >
+            {showAll ? "Show Less" : "See All"}
+            {!showAll && (
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                ({allOrdersData.length})
+              </span>
+            )}
           </button>
         </div>
       </div>
-      <div className="max-w-full overflow-x-auto">
-        <Table>
-          {/* Table Header */}
-          <TableHeader className="border-gray-100 dark:border-gray-800 border-y">
-            <TableRow>
-              <TableCell
-                isHeader
-                className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-              >
-                Products
-              </TableCell>
-              <TableCell
-                isHeader
-                className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-              >
-                Category
-              </TableCell>
-              <TableCell
-                isHeader
-                className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-              >
-                Price
-              </TableCell>
-              <TableCell
-                isHeader
-                className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-              >
-                Status
-              </TableCell>
-            </TableRow>
-          </TableHeader>
+      
+      {loading ? (
+        <div className="flex justify-center items-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+        </div>
+      ) : (
+        <div className="max-w-full overflow-x-auto">
+          <Table>
+            {/* Table Header */}
+            <TableHeader className="border-gray-100 dark:border-gray-800 border-y">
+              <TableRow>
+                <TableCell
+                  isHeader
+                  className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+                >
+                  Products
+                </TableCell>
+                <TableCell
+                  isHeader
+                  className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+                >
+                  Category
+                </TableCell>
+                <TableCell
+                  isHeader
+                  className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+                >
+                  Price
+                </TableCell>
+                <TableCell
+                  isHeader
+                  className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+                >
+                  Status
+                </TableCell>
+              </TableRow>
+            </TableHeader>
 
-          {/* Table Body */}
-
-          <TableBody className="divide-y divide-gray-100 dark:divide-gray-800">
-            {tableData.map((product) => (
+            {/* Table Body */}
+            <TableBody className="divide-y divide-gray-100 dark:divide-gray-800">
+              {orders.map((product) => (
               <TableRow key={product.id} className="">
                 <TableCell className="py-3">
                   <div className="flex items-center gap-3">
@@ -182,10 +270,10 @@ export default function RecentOrders() {
                   </div>
                 </TableCell>
                 <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                  {product.price}
+                  {product.category}
                 </TableCell>
                 <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                  {product.category}
+                  {product.price}
                 </TableCell>
                 <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
                   <Badge
@@ -202,10 +290,17 @@ export default function RecentOrders() {
                   </Badge>
                 </TableCell>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+      
+      {!loading && orders.length === 0 && (
+        <div className="flex justify-center items-center py-12">
+          <p className="text-gray-500 dark:text-gray-400">No recent orders found</p>
+        </div>
+      )}
     </div>
   );
 }

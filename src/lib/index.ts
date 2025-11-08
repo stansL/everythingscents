@@ -29,6 +29,9 @@ export type {
   ProductUpdateInput
 } from './services/products/types';
 
+// Utility exports
+export { ImageUtils } from './utils/imageUtils';
+
 // Order service types (service to be implemented)
 export type {
   Order,
