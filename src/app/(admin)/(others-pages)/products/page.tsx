@@ -1,10 +1,12 @@
 "use client";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
-import { ProductService, Product } from "@/lib";
+import { ProductService, Product, ProductStatus } from "@/lib";
 import React, { useEffect, useState } from "react";
 import ProductsTable from "@/components/products/ProductsTable";
+import { useRouter } from "next/navigation";
 
 export default function ProductsPage() {
+  const router = useRouter();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -41,7 +43,7 @@ export default function ProductsPage() {
         const productFilter = {
           ...(filters.brand && { brand: filters.brand }),
           ...(filters.category && { categoryId: filters.category }),
-          ...(filters.isActive !== "all" && { isActive: filters.isActive === "true" }),
+          ...(filters.isActive !== "all" && { status: filters.isActive as ProductStatus }),
           ...(filters.isFeatured !== "all" && { isFeatured: filters.isFeatured === "true" })
         };
 
@@ -89,101 +91,10 @@ export default function ProductsPage() {
     setCurrentPage(page);
   };
 
-  const addSampleProduct = async () => {
-    try {
-      const sampleProducts = [
-        {
-          name: "Lavender Dreams Perfume",
-          description: "A calming lavender-based fragrance perfect for evening wear",
-          price: 89.99,
-          sku: `LAV-${Date.now()}`,
-          categoryId: "perfumes",
-          brand: "Everything Scents",
-          images: ["/images/product/product-01.jpg"],
-          stock: 25,
-          minStock: 5,
-          tags: ["lavender", "floral", "evening", "calming"],
-          isActive: true,
-          isFeatured: true,
-          scentProfile: {
-            topNotes: ["Bergamot", "Lemon"],
-            middleNotes: ["Lavender", "Rose"],
-            baseNotes: ["Sandalwood", "Musk"]
-          },
-          scentType: "perfume" as const,
-          size: "50ml",
-          gender: "unisex" as const,
-          season: "year-round" as const,
-          longevity: "long-lasting" as const,
-          sillage: "moderate" as const,
-        },
-        {
-          name: "Ocean Breeze Cologne",
-          description: "Fresh aquatic fragrance with marine and citrus notes",
-          price: 65.99,
-          salePrice: 49.99,
-          sku: `OCN-${Date.now() + 1}`,
-          categoryId: "colognes",
-          brand: "Everything Scents",
-          images: ["/images/product/product-02.jpg"],
-          stock: 15,
-          minStock: 10,
-          tags: ["ocean", "fresh", "citrus", "summer"],
-          isActive: true,
-          isFeatured: false,
-          scentProfile: {
-            topNotes: ["Lemon", "Sea Salt", "Bergamot"],
-            middleNotes: ["Marine Accord", "Jasmine"],
-            baseNotes: ["White Musk", "Cedar"]
-          },
-          scentType: "cologne" as const,
-          size: "100ml",
-          gender: "men" as const,
-          season: "summer" as const,
-          longevity: "moderate" as const,
-          sillage: "moderate" as const,
-        },
-        {
-          name: "Vanilla Sunset Candle",
-          description: "Warm vanilla candle with amber and sandalwood undertones",
-          price: 34.99,
-          sku: `VAN-${Date.now() + 2}`,
-          categoryId: "candles",
-          brand: "Everything Scents",
-          images: ["/images/product/product-03.jpg"],
-          stock: 3,
-          minStock: 5,
-          tags: ["vanilla", "candle", "warm", "cozy"],
-          isActive: true,
-          isFeatured: true,
-          scentProfile: {
-            topNotes: ["Vanilla Bean"],
-            middleNotes: ["Amber", "Honey"],
-            baseNotes: ["Sandalwood", "Musk"]
-          },
-          scentType: "candle" as const,
-          size: "8oz",
-          gender: "unisex" as const,
-          season: "fall" as const,
-          longevity: "long-lasting" as const,
-          sillage: "strong" as const,
-        }
-      ];
 
-      // Add one random sample product
-      const randomIndex = Math.floor(Math.random() * sampleProducts.length);
-      const sampleProduct = sampleProducts[randomIndex];
 
-      const response = await ProductService.createProduct(sampleProduct);
-      if (response.success) {
-        await loadProducts(true); // Refresh the list
-        alert("Sample product added successfully!");
-      } else {
-        alert(response.error || "Failed to add product");
-      }
-    } catch {
-      alert("An error occurred while adding the product");
-    }
+  const handleAddProduct = () => {
+    router.push('/add-product');
   };
 
   if (loading) {
@@ -201,17 +112,8 @@ export default function ProductsPage() {
 
   return (
     <div>
-      <PageBreadcrumb pageTitle="Products" />
+      <PageBreadcrumb pageTitle="Products Management" />
       <div className="min-h-screen rounded-2xl border border-gray-200 bg-white px-5 py-7 dark:border-gray-800 dark:bg-white/[0.03] xl:px-10 xl:py-12">
-        <div className="mb-6">
-          <h3 className="mb-4 font-semibold text-gray-800 text-theme-xl dark:text-white/90 sm:text-2xl">
-            Products Management
-          </h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400 sm:text-base">
-            Manage your product inventory here. Connected to Firebase Firestore.
-          </p>
-        </div>
-
         {error && (
           <div className="mb-6 p-4 text-red-600 bg-red-50 rounded-lg dark:bg-red-900/20 dark:text-red-400">
             {error}
@@ -229,7 +131,7 @@ export default function ProductsPage() {
           onFilterChange={handleFilterChange}
           onPageChange={handlePageChange}
           onRefresh={handleRefresh}
-          onAddProduct={addSampleProduct}
+          onAddProduct={handleAddProduct}
           onProductUpdate={() => loadProducts(true)}
         />
       </div>

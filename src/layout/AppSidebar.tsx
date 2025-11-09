@@ -50,6 +50,17 @@ const navItems: NavItem[] = [
     ],
   },
   {
+    icon: <GridIcon />,
+    name: "Inventory Management",
+    subItems: [
+      { name: "Dashboard", path: "/inventory", pro: false },
+      { name: "Stock Movements", path: "/inventory/transactions", pro: false },
+      { name: "Suppliers", path: "/inventory/suppliers", pro: false },
+      { name: "Purchase Orders", path: "/inventory/purchase-orders", pro: false },
+      { name: "Reports", path: "/inventory/reports", pro: false },
+    ],
+  },
+  {
     icon: <ListIcon />,
     name: "Manage Orders",
     path: "/manage-orders",
