@@ -6,7 +6,7 @@ interface ProductFiltersProps {
   filters: {
     brand: string;
     category: string;
-    isActive: string;
+    isActive: string; // Keep isActive for backward compatibility with existing code
     isFeatured: string;
   };
   onSearch: (term: string) => void;
@@ -122,8 +122,10 @@ const ProductFilters: React.FC<ProductFiltersProps> = ({
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
           >
             <option value="all">All Status</option>
-            <option value="true">Active</option>
-            <option value="false">Inactive</option>
+            <option value="published">Published</option>
+            <option value="draft">Draft</option>
+            <option value="inactive">Inactive</option>
+            <option value="retired">Retired</option>
           </select>
         </div>
       </div>

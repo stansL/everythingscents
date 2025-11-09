@@ -26,7 +26,8 @@ export type {
   Product,
   ProductFilter,
   ProductCreateInput,
-  ProductUpdateInput
+  ProductUpdateInput,
+  ProductStatus
 } from './services/products/types';
 
 // Utility exports

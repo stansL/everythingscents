@@ -158,6 +158,8 @@ export default function AddProductPage() {
     thumbnail: "",
     stock: 0,
     minStock: 0,
+    reorderPoint: 0,
+    reorderQuantity: 0,
     weight: 0,
     dimensions: {
       length: 0,
@@ -167,6 +169,7 @@ export default function AddProductPage() {
     tags: [],
     isActive: true,
     isFeatured: false,
+    status: 'draft' as const,
     scentProfile: {
       topNotes: [],
       middleNotes: [],
@@ -184,6 +187,10 @@ export default function AddProductPage() {
     taxable: true,
     collections: [],
   });
+
+  // Display values for number inputs (to handle placeholder behavior)
+  const [displayValues, setDisplayValues] = useState<Record<string, string>>({});
+  const [focusedFields, setFocusedFields] = useState<Set<string>>(new Set());
 
   // Form validation functions
   const validateFormCompleteness = React.useCallback(() => {
@@ -300,6 +307,13 @@ export default function AddProductPage() {
         [name]: checkbox.checked
       }));
     } else if (type === "number") {
+      // Store the display value as-is for better UX
+      setDisplayValues(prev => ({
+        ...prev,
+        [name]: value
+      }));
+      
+      // Store the parsed number value in formData
       setFormData(prev => ({
         ...prev,
         [name]: parseFloat(value) || 0
@@ -310,6 +324,44 @@ export default function AddProductPage() {
         [name]: value
       }));
     }
+  };
+
+  const handleNumberFocus = (fieldName: string) => {
+    setFocusedFields(prev => new Set(prev).add(fieldName));
+    // If the value is 0, clear the display value for better UX
+    if (formData[fieldName as keyof typeof formData] === 0) {
+      setDisplayValues(prev => ({
+        ...prev,
+        [fieldName]: ""
+      }));
+    }
+  };
+
+  const handleNumberBlur = (fieldName: string) => {
+    setFocusedFields(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(fieldName);
+      return newSet;
+    });
+    
+    // If empty, reset to show the actual value (including 0)
+    const currentDisplayValue = displayValues[fieldName];
+    if (!currentDisplayValue || currentDisplayValue.trim() === "") {
+      setDisplayValues(prev => ({
+        ...prev,
+        [fieldName]: String(formData[fieldName as keyof typeof formData] || 0)
+      }));
+    }
+  };
+
+  const getNumberDisplayValue = (fieldName: string): string => {
+    // If field is focused or has a display value, use that
+    if (focusedFields.has(fieldName) || displayValues[fieldName] !== undefined) {
+      return displayValues[fieldName] || "";
+    }
+    // Otherwise, show the form value (but empty string if 0)
+    const value = formData[fieldName as keyof typeof formData] as number;
+    return value === 0 ? "" : String(value);
   };
 
   const handleArrayChange = (name: string, value: string) => {
@@ -341,6 +393,15 @@ export default function AddProductPage() {
   };
 
   const handleDimensionsChange = (dimension: 'length' | 'width' | 'height', value: string) => {
+    const fieldName = `dimensions.${dimension}`;
+    
+    // Store the display value
+    setDisplayValues(prev => ({
+      ...prev,
+      [fieldName]: value
+    }));
+    
+    // Update formData
     setFormData(prev => ({
       ...prev,
       dimensions: {
@@ -348,6 +409,50 @@ export default function AddProductPage() {
         [dimension]: parseFloat(value) || 0
       }
     }));
+  };
+
+  const handleDimensionFocus = (dimension: 'length' | 'width' | 'height') => {
+    const fieldName = `dimensions.${dimension}`;
+    setFocusedFields(prev => new Set(prev).add(fieldName));
+    
+    // If the value is 0, clear the display value
+    const currentValue = formData.dimensions?.[dimension] || 0;
+    if (currentValue === 0) {
+      setDisplayValues(prev => ({
+        ...prev,
+        [fieldName]: ""
+      }));
+    }
+  };
+
+  const handleDimensionBlur = (dimension: 'length' | 'width' | 'height') => {
+    const fieldName = `dimensions.${dimension}`;
+    setFocusedFields(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(fieldName);
+      return newSet;
+    });
+    
+    // Reset display value if empty
+    const currentDisplayValue = displayValues[fieldName];
+    if (!currentDisplayValue || currentDisplayValue.trim() === "") {
+      const currentValue = formData.dimensions?.[dimension] || 0;
+      setDisplayValues(prev => ({
+        ...prev,
+        [fieldName]: currentValue === 0 ? "" : String(currentValue)
+      }));
+    }
+  };
+
+  const getDimensionDisplayValue = (dimension: 'length' | 'width' | 'height'): string => {
+    const fieldName = `dimensions.${dimension}`;
+    
+    if (focusedFields.has(fieldName) || displayValues[fieldName] !== undefined) {
+      return displayValues[fieldName] || "";
+    }
+    
+    const value = formData.dimensions?.[dimension] || 0;
+    return value === 0 ? "" : String(value);
   };
 
   const generateSKU = () => {
@@ -478,6 +583,7 @@ export default function AddProductPage() {
       const productData: ProductCreateInput = {
         ...formData,
         isActive: saveAs === 'publish',
+        status: saveAs === 'publish' ? 'published' : 'draft',
         images: uploadedImages,
         thumbnail: selectedThumbnail,
         metaTitle: formData.metaTitle || formData.name,
@@ -797,8 +903,10 @@ export default function AddProductPage() {
                     <input
                       type="number"
                       name="weight"
-                      value={formData.weight}
+                      value={getNumberDisplayValue('weight')}
                       onChange={handleInputChange}
+                      onFocus={() => handleNumberFocus('weight')}
+                      onBlur={() => handleNumberBlur('weight')}
                       placeholder="Weight in grams"
                       step="0.01"
                       min="0"
@@ -813,8 +921,10 @@ export default function AddProductPage() {
                     </label>
                     <input
                       type="number"
-                      value={formData.dimensions?.height || 0}
+                      value={getDimensionDisplayValue('height')}
                       onChange={(e) => handleDimensionsChange('height', e.target.value)}
+                      onFocus={() => handleDimensionFocus('height')}
+                      onBlur={() => handleDimensionBlur('height')}
                       placeholder="Height"
                       step="0.1"
                       min="0"
@@ -830,8 +940,10 @@ export default function AddProductPage() {
                     <div className="grid grid-cols-2 gap-2">
                       <input
                         type="number"
-                        value={formData.dimensions?.length || 0}
+                        value={getDimensionDisplayValue('length')}
                         onChange={(e) => handleDimensionsChange('length', e.target.value)}
+                        onFocus={() => handleDimensionFocus('length')}
+                        onBlur={() => handleDimensionBlur('length')}
                         placeholder="Length"
                         step="0.1"
                         min="0"
@@ -839,8 +951,10 @@ export default function AddProductPage() {
                       />
                       <input
                         type="number"
-                        value={formData.dimensions?.width || 0}
+                        value={getDimensionDisplayValue('width')}
                         onChange={(e) => handleDimensionsChange('width', e.target.value)}
+                        onFocus={() => handleDimensionFocus('width')}
+                        onBlur={() => handleDimensionBlur('width')}
                         placeholder="Width"
                         step="0.1"
                         min="0"
@@ -1104,8 +1218,10 @@ export default function AddProductPage() {
                   <input
                     type="number"
                     name="costPrice"
-                    value={formData.costPrice}
+                    value={getNumberDisplayValue('costPrice')}
                     onChange={handleInputChange}
+                    onFocus={() => handleNumberFocus('costPrice')}
+                    onBlur={() => handleNumberBlur('costPrice')}
                     placeholder="0.00"
                     required
                     step="0.01"
@@ -1124,8 +1240,10 @@ export default function AddProductPage() {
                     <input
                       type="number"
                       name="price"
-                      value={formData.price}
+                      value={getNumberDisplayValue('price')}
                       onChange={handleInputChange}
+                      onFocus={() => handleNumberFocus('price')}
+                      onBlur={() => handleNumberBlur('price')}
                       placeholder="0.00"
                       required
                       step="0.01"
@@ -1139,10 +1257,17 @@ export default function AddProductPage() {
                     {formData.costPrice > 0 && (
                       <button
                         type="button"
-                        onClick={() => setFormData(prev => ({
-                          ...prev,
-                          price: calculateRecommendedPrice(formData.costPrice)
-                        }))}
+                        onClick={() => {
+                          const recommendedPrice = calculateRecommendedPrice(formData.costPrice);
+                          setFormData(prev => ({
+                            ...prev,
+                            price: recommendedPrice
+                          }));
+                          setDisplayValues(prev => ({
+                            ...prev,
+                            price: String(recommendedPrice)
+                          }));
+                        }}
                         className="absolute right-2 top-1/2 transform -translate-y-1/2 px-2 py-1 text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-md hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors"
                       >
                         Use ${calculateRecommendedPrice(formData.costPrice)}
@@ -1178,8 +1303,10 @@ export default function AddProductPage() {
                   <input
                     type="number"
                     name="salePrice"
-                    value={formData.salePrice}
+                    value={getNumberDisplayValue('salePrice')}
                     onChange={handleInputChange}
+                    onFocus={() => handleNumberFocus('salePrice')}
+                    onBlur={() => handleNumberBlur('salePrice')}
                     placeholder="0.00"
                     step="0.01"
                     min="0"
@@ -1189,8 +1316,8 @@ export default function AddProductPage() {
                 </div>
               </div>
 
-              {/* Stock and Alert Row */}
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              {/* Stock, Alert, and Featured Product Row */}
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3 mt-6">
 
                 {/* Stock Quantity */}
                 <div>
@@ -1200,8 +1327,10 @@ export default function AddProductPage() {
                   <input
                     type="number"
                     name="stock"
-                    value={formData.stock}
+                    value={getNumberDisplayValue('stock')}
                     onChange={handleInputChange}
+                    onFocus={() => handleNumberFocus('stock')}
+                    onBlur={() => handleNumberBlur('stock')}
                     placeholder="0"
                     required
                     min="0"
@@ -1217,8 +1346,10 @@ export default function AddProductPage() {
                   <input
                     type="number"
                     name="minStock"
-                    value={formData.minStock}
+                    value={getNumberDisplayValue('minStock')}
                     onChange={handleInputChange}
+                    onFocus={() => handleNumberFocus('minStock')}
+                    onBlur={() => handleNumberBlur('minStock')}
                     placeholder="0"
                     min="0"
                     className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200 hover:border-gray-400 dark:hover:border-gray-500"
@@ -1226,56 +1357,62 @@ export default function AddProductPage() {
                   <p className="text-xs text-gray-500 mt-1">Get notified when stock is low</p>
                 </div>
 
-                {/* Featured Product */}
-                <div className="flex items-center">
-                  <label className="flex items-center cursor-pointer group">
-                    <input
-                      type="checkbox"
-                      name="isFeatured"
-                      checked={formData.isFeatured}
-                      onChange={handleInputChange}
-                      className="sr-only"
-                    />
-                    <div className="relative">
-                      <div className={`mr-3 flex h-6 w-6 items-center justify-center rounded-lg border-2 transition-all duration-200 ${formData.isFeatured ? 'border-blue-500 bg-blue-500' : 'border-gray-300 dark:border-gray-600 hover:border-blue-300'}`}>
-                        {formData.isFeatured && (
-                          <svg className="h-4 w-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                          </svg>
-                        )}
-                      </div>
-                    </div>
-                    <div>
-                      <span className="text-sm font-medium text-gray-900 dark:text-white">Featured Product</span>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Show this product in featured sections</p>
-                    </div>
+                {/* Featured Product and Taxable Product */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Product Features
                   </label>
-                </div>
+                  <div className="space-y-3">
+                    <div className="flex items-center">
+                      <label className="flex items-center cursor-pointer group">
+                        <input
+                          type="checkbox"
+                          name="isFeatured"
+                          checked={formData.isFeatured}
+                          onChange={handleInputChange}
+                          className="sr-only"
+                        />
+                        <div className="relative">
+                          <div className={`mr-3 flex h-6 w-6 items-center justify-center rounded-lg border-2 transition-all duration-200 ${formData.isFeatured ? 'border-blue-500 bg-blue-500' : 'border-gray-300 dark:border-gray-600 hover:border-blue-300'}`}>
+                            {formData.isFeatured && (
+                              <svg className="h-4 w-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                              </svg>
+                            )}
+                          </div>
+                        </div>
+                        <div>
+                          <span className="text-sm font-medium text-gray-900 dark:text-white">Featured Product</span>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Show this product in featured sections</p>
+                        </div>
+                      </label>
+                    </div>
 
-                {/* Tax Settings */}
-                <div className="flex items-center">
-                  <label className="flex items-center cursor-pointer group">
-                    <input
-                      type="checkbox"
-                      name="taxable"
-                      checked={formData.taxable}
-                      onChange={(e) => setFormData(prev => ({ ...prev, taxable: e.target.checked }))}
-                      className="sr-only"
-                    />
-                    <div className="relative">
-                      <div className={`mr-3 flex h-6 w-6 items-center justify-center rounded-lg border-2 transition-all duration-200 ${formData.taxable ? 'border-green-500 bg-green-500' : 'border-gray-300 dark:border-gray-600 hover:border-green-300'}`}>
-                        {formData.taxable && (
-                          <svg className="h-4 w-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                          </svg>
-                        )}
-                      </div>
+                    <div className="flex items-center">
+                      <label className="flex items-center cursor-pointer group">
+                        <input
+                          type="checkbox"
+                          name="taxable"
+                          checked={formData.taxable}
+                          onChange={(e) => setFormData(prev => ({ ...prev, taxable: e.target.checked }))}
+                          className="sr-only"
+                        />
+                        <div className="relative">
+                          <div className={`mr-3 flex h-6 w-6 items-center justify-center rounded-lg border-2 transition-all duration-200 ${formData.taxable ? 'border-green-500 bg-green-500' : 'border-gray-300 dark:border-gray-600 hover:border-green-300'}`}>
+                            {formData.taxable && (
+                              <svg className="h-4 w-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                              </svg>
+                            )}
+                          </div>
+                        </div>
+                        <div>
+                          <span className="text-sm font-medium text-gray-900 dark:text-white">Taxable Product</span>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Tax will be calculated at checkout</p>
+                        </div>
+                      </label>
                     </div>
-                    <div>
-                      <span className="text-sm font-medium text-gray-900 dark:text-white">Taxable Product</span>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Tax will be calculated at checkout</p>
-                    </div>
-                  </label>
+                  </div>
                 </div>
               </div>
             </div>

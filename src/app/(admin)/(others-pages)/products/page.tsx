@@ -1,6 +1,6 @@
 "use client";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
-import { ProductService, Product } from "@/lib";
+import { ProductService, Product, ProductStatus } from "@/lib";
 import React, { useEffect, useState } from "react";
 import ProductsTable from "@/components/products/ProductsTable";
 import { useRouter } from "next/navigation";
@@ -43,7 +43,7 @@ export default function ProductsPage() {
         const productFilter = {
           ...(filters.brand && { brand: filters.brand }),
           ...(filters.category && { categoryId: filters.category }),
-          ...(filters.isActive !== "all" && { isActive: filters.isActive === "true" }),
+          ...(filters.isActive !== "all" && { status: filters.isActive as ProductStatus }),
           ...(filters.isFeatured !== "all" && { isFeatured: filters.isFeatured === "true" })
         };
 

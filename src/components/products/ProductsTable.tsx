@@ -1,11 +1,11 @@
 "use client";
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Product } from "@/lib";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import Badge from "@/components/ui/badge/Badge";
 import Pagination from "@/components/tables/Pagination";
 import ProductViewModal from "./ProductViewModal";
-import ProductEditModal from "./ProductEditModal";
 import ProductDeleteModal from "./ProductDeleteModal";
 import ProductFilters from "./ProductFilters";
 import ProductImage from "./ProductImage";
@@ -49,10 +49,11 @@ const ProductsTable: React.FC<ProductsTableProps> = ({
   onAddProduct,
   onProductUpdate,
 }) => {
+  const router = useRouter();
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [modalType, setModalType] = useState<'view' | 'edit' | 'delete' | null>(null);
+  const [modalType, setModalType] = useState<'view' | 'delete' | null>(null);
 
-  const handleModalOpen = (product: Product, type: 'view' | 'edit' | 'delete') => {
+  const handleModalOpen = (product: Product, type: 'view' | 'delete') => {
     setSelectedProduct(product);
     setModalType(type);
   };
@@ -218,19 +219,30 @@ const ProductsTable: React.FC<ProductsTableProps> = ({
                     </TableCell>
                     <TableCell className="border-b border-[#eee] py-5 px-4 dark:border-strokedark">
                       <p className={`inline-flex rounded-full py-1 px-3 text-sm font-medium ${
-                        product.isActive 
-                          ? 'bg-success bg-opacity-10 text-success'
-                          : 'bg-danger bg-opacity-10 text-danger'
+                        (product.status === 'published' || (!product.status && product.isActive))
+                          ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
+                          : product.status === 'draft'
+                          ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400'
+                          : product.status === 'inactive'
+                          ? 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400'
+                          : (product.status === 'retired' || (!product.status && !product.isActive))
+                          ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
+                          : 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400'
                       }`}>
-                        {product.isActive ? "Active" : "Inactive"}
+                        {product.status === 'published' ? 'Published' : 
+                         product.status === 'draft' ? 'Draft' :
+                         product.status === 'inactive' ? 'Inactive' : 
+                         product.status === 'retired' ? 'Retired' :
+                         // Backward compatibility: if no status field, use isActive
+                         (!product.status && product.isActive) ? 'Active (Legacy)' : 'Inactive (Legacy)'}
                       </p>
                     </TableCell>
                     <TableCell className="border-b border-[#eee] py-5 px-4 dark:border-strokedark">
                       <div className="flex items-center space-x-3.5">
                         <button 
-                          onClick={() => handleModalOpen(product, 'view')}
+                          onClick={() => router.push(`/products/${product.id}`)}
                           className="hover:text-primary"
-                          title="View Details"
+                          title="View/Edit Product"
                         >
                           <svg
                             className="fill-current"
@@ -246,25 +258,6 @@ const ProductsTable: React.FC<ProductsTableProps> = ({
                             />
                             <path
                               d="M9 11.3906C7.67812 11.3906 6.60938 10.3219 6.60938 9C6.60938 7.67813 7.67812 6.60938 9 6.60938C10.3219 6.60938 11.3906 7.67813 11.3906 9C11.3906 10.3219 10.3219 11.3906 9 11.3906ZM9 8.10938C8.51562 8.10938 8.10938 8.51562 8.10938 9C8.10938 9.48438 8.51562 9.89063 9 9.89063C9.48438 9.89063 9.89062 9.48438 9.89062 9C9.89062 8.51562 9.48438 8.10938 9 8.10938Z"
-                              fill=""
-                            />
-                          </svg>
-                        </button>
-                        <button 
-                          onClick={() => handleModalOpen(product, 'edit')}
-                          className="hover:text-primary"
-                          title="Edit Product"
-                        >
-                          <svg
-                            className="fill-current"
-                            width="18"
-                            height="18"
-                            viewBox="0 0 18 18"
-                            fill="none"
-                            xmlns="http://www.w3.org/2000/svg"
-                          >
-                            <path
-                              d="M13.2998 1C13.9629 1 14.4998 1.53686 14.4998 2.2V15.8C14.4998 16.4631 13.9629 17 13.2998 17H2.19976C1.53662 17 0.999756 16.4631 0.999756 15.8V2.2C0.999756 1.53686 1.53662 1 2.19976 1H13.2998ZM13.2998 2.2H2.19976V15.8H13.2998V2.2ZM10.8998 4.4C11.0983 4.4 11.2891 4.47902 11.4328 4.62279C11.5766 4.76656 11.6556 4.95739 11.6556 5.156V12.244C11.6556 12.4426 11.5766 12.6334 11.4328 12.7772C11.2891 12.921 11.0983 13 10.8998 13H5.09976C4.90119 13 4.71036 12.921 4.56659 12.7772C4.42282 12.6334 4.3438 12.4426 4.3438 12.244V5.156C4.3438 4.95739 4.42282 4.76656 4.56659 4.62279C4.71036 4.47902 4.90119 4.4 5.09976 4.4H10.8998Z"
                               fill=""
                             />
                           </svg>
@@ -331,15 +324,6 @@ const ProductsTable: React.FC<ProductsTableProps> = ({
           isOpen={true}
           onClose={handleModalClose}
           product={selectedProduct}
-        />
-      )}
-
-      {selectedProduct && modalType === 'edit' && (
-        <ProductEditModal
-          isOpen={true}
-          onClose={handleModalClose}
-          product={selectedProduct}
-          onProductUpdate={onProductUpdate}
         />
       )}
 
