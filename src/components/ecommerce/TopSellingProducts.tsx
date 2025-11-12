@@ -153,7 +153,7 @@ export default function TopSellingProducts() {
       setShowAll(true);
     }
   };
-  const getStockBadgeColor = (status: string): "success" | "warning" | "error" | "default" => {
+  const getStockBadgeColor = (status: string): "success" | "warning" | "error" | "light" => {
     switch (status) {
       case "In Stock":
         return "success";
@@ -162,7 +162,7 @@ export default function TopSellingProducts() {
       case "Out of Stock":
         return "error";
       default:
-        return "default";
+        return "light";
     }
   };
 
@@ -301,7 +301,7 @@ export default function TopSellingProducts() {
                     </span>
                   </TableCell>
                   <TableCell className="py-4 text-center">
-                    <Badge color={getStockBadgeColor(product.stockStatus) as any}>
+                    <Badge color={getStockBadgeColor(product.stockStatus)}>
                       {product.stockStatus}
                     </Badge>
                   </TableCell>

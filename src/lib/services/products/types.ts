@@ -63,6 +63,7 @@ export interface PurchaseOrderItem {
 }
 
 export interface PurchaseOrder extends BaseEntity {
+  poNumber: string; // Purchase order number for tracking
   supplierId: string;
   supplierName: string;
   items: PurchaseOrderItem[];

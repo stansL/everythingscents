@@ -88,7 +88,7 @@ interface CostMetrics {
   variance: number;
 }
 
-interface QualityMetrics {
+interface AggregatedQualityMetrics {
   accuracyPercentage: number;
   totalDiscrepancies: number;
   averageAccuracy: number;
@@ -412,11 +412,7 @@ class SupplierPerformanceService {
   /**
    * Calculate quality/accuracy metrics
    */
-  private async calculateQualityMetrics(orders: PurchaseOrder[]): Promise<{
-    accuracyPercentage: number;
-    totalDiscrepancies: number;
-    averageAccuracy: number;
-  }> {
+  private async calculateQualityMetrics(orders: PurchaseOrder[]): Promise<AggregatedQualityMetrics> {
     const completedOrders = orders.filter(o => o.status === 'completed');
     
     if (completedOrders.length === 0) {
@@ -454,7 +450,7 @@ class SupplierPerformanceService {
   private calculatePerformanceScore(
     deliveryMetrics: DeliveryMetrics,
     costMetrics: CostMetrics,
-    qualityMetrics: QualityMetrics
+    qualityMetrics: AggregatedQualityMetrics
   ): number {
     // Weighted scoring:
     // - Delivery performance: 40%

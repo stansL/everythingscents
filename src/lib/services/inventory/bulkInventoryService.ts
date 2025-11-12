@@ -1,8 +1,5 @@
 import { 
   collection, 
-  addDoc, 
-  updateDoc,
-  doc,
   getDocs,
   query,
   where,
@@ -11,6 +8,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { inventoryService } from './inventoryService';
+import { Product, InventoryTransaction } from '../products/types';
 
 // Types for bulk operations
 export interface BulkInventoryItem {
@@ -200,7 +198,7 @@ class BulkInventoryService {
         const rowNumber = i + 2; // +2 because of header and 0-based index
 
         try {
-          const item = await this.validateAndPrepareRow(row, headerIndices, rowNumber);
+          const item = await this.validateAndPrepareRow(row, headerIndices);
           bulkItems.push(item);
         } catch (error) {
           errors.push({
@@ -217,7 +215,7 @@ class BulkInventoryService {
 
       for (const item of bulkItems) {
         try {
-          await this.processInventoryAdjustment(item, batch);
+          await this.processInventoryAdjustment(item);
           successful++;
         } catch (error) {
           errors.push({
@@ -255,30 +253,30 @@ class BulkInventoryService {
       const products = productsSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
-      }));
+      })) as Product[];
 
       const exportData: ExportData[] = [];
 
       // Get inventory data for each product
       for (const product of products) {
         try {
-          const inventory = await inventoryService.getProductInventory(product.id);
+          // Use product data directly since it contains inventory information
+          const currentStock = product.totalUnits || product.stock || 0;
+          const weightedAverageCost = product.weightedAverageCost || 0;
           
-          if (inventory) {
-            exportData.push({
-              productId: product.id,
-              productName: product.name || 'Unknown',
-              category: product.category || 'Uncategorized',
-              currentStock: inventory.currentStock,
-              weightedAverageCost: inventory.weightedAverageCost,
-              totalValue: inventory.currentStock * inventory.weightedAverageCost,
-              lastUpdated: inventory.lastUpdated?.toDate().toISOString() || new Date().toISOString(),
-              reorderPoint: product.reorderPoint,
-              maxStock: product.maxStock
-            });
-          }
+          exportData.push({
+            productId: product.id || '',
+            productName: product.name || 'Unknown',
+            category: product.categoryId || 'Uncategorized',
+            currentStock: currentStock,
+            weightedAverageCost: weightedAverageCost,
+            totalValue: currentStock * weightedAverageCost,
+            lastUpdated: product.updatedAt?.toDate().toISOString() || new Date().toISOString(),
+            reorderPoint: product.reorderPoint || 0,
+            maxStock: 0 // Product interface doesn't have maxStock
+          });
         } catch (error) {
-          console.warn(`Failed to get inventory for product ${product.id}:`, error);
+          console.warn(`Failed to process inventory for product ${product.id}:`, error);
         }
       }
 
@@ -322,7 +320,7 @@ class BulkInventoryService {
    */
   async exportTransactionsToCSV(dateRange?: { start: Date; end: Date }): Promise<string> {
     try {
-      let transactionsQuery = query(
+      const transactionsQuery = query(
         collection(db, 'inventoryTransactions'),
         ...(dateRange ? [
           where('transactionDate', '>=', Timestamp.fromDate(dateRange.start)),
@@ -334,7 +332,7 @@ class BulkInventoryService {
       const transactions = transactionsSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
-      }));
+      })) as InventoryTransaction[];
 
       const headers = [
         'Transaction ID',
@@ -352,14 +350,14 @@ class BulkInventoryService {
       const csvRows = [
         headers.join(','),
         ...transactions.map(transaction => [
-          this.escapeCSVField(transaction.id),
+          this.escapeCSVField(transaction.id || ''),
           this.escapeCSVField(transaction.productId || ''),
           this.escapeCSVField(transaction.productName || ''),
           this.escapeCSVField(transaction.type || ''),
           (transaction.quantity || 0).toString(),
-          (transaction.unitPrice || 0).toFixed(2),
-          ((transaction.quantity || 0) * (transaction.unitPrice || 0)).toFixed(2),
-          transaction.transactionDate?.toDate().toISOString() || '',
+          (transaction.unitCost || 0).toFixed(2),
+          ((transaction.quantity || 0) * (transaction.unitCost || 0)).toFixed(2),
+          transaction.createdAt?.toDate().toISOString() || '',
           this.escapeCSVField(transaction.reference || ''),
           this.escapeCSVField(transaction.notes || '')
         ].join(','))
@@ -377,8 +375,7 @@ class BulkInventoryService {
    */
   private async validateAndPrepareRow(
     row: string[], 
-    headerIndices: any, 
-    rowNumber: number
+    headerIndices: { [key: string]: number }
   ): Promise<BulkInventoryItem> {
     const productId = row[headerIndices.productId]?.trim();
     if (!productId) {
@@ -425,15 +422,8 @@ class BulkInventoryService {
       throw new Error('Reason is required');
     }
 
-    // Get current stock
-    let currentStock = 0;
-    try {
-      const inventory = await inventoryService.getProductInventory(productId);
-      currentStock = inventory?.currentStock || 0;
-    } catch (error) {
-      // If no inventory record, assume 0 stock
-      currentStock = 0;
-    }
+    // Get current stock from product data
+    const currentStock = (productData as Product).totalUnits || (productData as Product).stock || 0;
 
     const newStock = currentStock + adjustmentQuantity;
     if (newStock < 0) {
@@ -457,63 +447,20 @@ class BulkInventoryService {
   /**
    * Process a single inventory adjustment
    */
-  private async processInventoryAdjustment(item: BulkInventoryItem, batch: any): Promise<void> {
-    const transactionData = {
-      productId: item.productId,
-      productName: item.productName,
-      type: item.adjustmentQuantity > 0 ? 'purchase' : 'adjustment',
-      quantity: Math.abs(item.adjustmentQuantity),
-      unitPrice: item.unitCost,
-      totalAmount: Math.abs(item.adjustmentQuantity) * item.unitCost,
-      transactionDate: Timestamp.now(),
-      reference: 'BULK_ADJUSTMENT',
-      notes: `${item.reason}${item.notes ? ` - ${item.notes}` : ''}`,
-      createdAt: Timestamp.now()
-    };
-
-    // Add transaction to batch
-    const transactionRef = doc(collection(db, 'inventoryTransactions'));
-    batch.set(transactionRef, transactionData);
-
-    // Update inventory will be handled by the inventory service triggers
-    // For now, we'll update it directly in the batch
+  private async processInventoryAdjustment(item: BulkInventoryItem): Promise<void> {
+    // Use the inventory service's adjustInventory method
+    // This ensures proper WAC calculations and transaction recording
     try {
-      const inventory = await inventoryService.getProductInventory(item.productId);
+      const adjustmentType = item.adjustmentQuantity > 0 ? 'increase' : 'decrease';
       
-      if (inventory) {
-        // Calculate new WAC
-        const currentValue = inventory.currentStock * inventory.weightedAverageCost;
-        const adjustmentValue = Math.abs(item.adjustmentQuantity) * item.unitCost;
-        
-        let newWAC = inventory.weightedAverageCost;
-        let newStock = item.newStock;
-        
-        if (item.adjustmentQuantity > 0) {
-          // Adding stock - recalculate WAC
-          const totalValue = currentValue + adjustmentValue;
-          newWAC = newStock > 0 ? totalValue / newStock : item.unitCost;
-        } else {
-          // Removing stock - keep existing WAC
-          newStock = Math.max(0, inventory.currentStock + item.adjustmentQuantity);
-        }
-
-        const inventoryRef = doc(db, 'inventory', item.productId);
-        batch.update(inventoryRef, {
-          currentStock: newStock,
-          weightedAverageCost: newWAC,
-          lastUpdated: Timestamp.now()
-        });
-      } else {
-        // Create new inventory record
-        const inventoryRef = doc(db, 'inventory', item.productId);
-        batch.set(inventoryRef, {
-          productId: item.productId,
-          currentStock: Math.max(0, item.adjustmentQuantity),
-          weightedAverageCost: item.unitCost,
-          lastUpdated: Timestamp.now(),
-          createdAt: Timestamp.now()
-        });
-      }
+      await inventoryService.adjustInventory({
+        productId: item.productId,
+        adjustmentType: adjustmentType,
+        quantity: Math.abs(item.adjustmentQuantity),
+        reason: `BULK: ${item.reason}`,
+        unitCost: item.unitCost,
+        notes: item.notes || 'Bulk inventory adjustment'
+      });
     } catch (error) {
       throw new Error(`Failed to update inventory for ${item.productId}: ${error}`);
     }

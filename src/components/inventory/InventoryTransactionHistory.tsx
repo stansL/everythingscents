@@ -237,7 +237,7 @@ export const InventoryTransactionHistory: React.FC<InventoryTransactionHistoryPr
                           {!productId && transaction.productName && (
                             <span className="font-medium">{transaction.productName} • </span>
                           )}
-                          {formatDate(transaction.createdAt)}
+                          {transaction.createdAt ? formatDate(transaction.createdAt) : 'No date'}
                         </div>
                         
                         <div className="text-gray-500 dark:text-gray-400 text-xs">

@@ -42,7 +42,7 @@ export const InventoryAdjustmentForm: React.FC<InventoryAdjustmentFormProps> = (
 
   const loadProducts = async () => {
     try {
-      const response = await ProductService.getAllProducts();
+      const response = await ProductService.getProducts();
       if (response.success && response.data) {
         setProducts(response.data);
       }
@@ -117,12 +117,10 @@ export const InventoryAdjustmentForm: React.FC<InventoryAdjustmentFormProps> = (
         onSuccess?.(response.transaction);
         
         // Reset form
-        const currentStock = selectedProduct.totalUnits || selectedProduct.stock || 0;
         setFormData({
           productId: productId || '',
-          adjustmentType: 'manual_count',
-          newQuantity: currentStock,
-          quantityChange: 0,
+          adjustmentType: 'correction',
+          quantity: 0,
           reason: 'stock_count',
           notes: ''
         });
@@ -143,8 +141,9 @@ export const InventoryAdjustmentForm: React.FC<InventoryAdjustmentFormProps> = (
   };
 
   const adjustmentTypeOptions = [
-    { value: 'manual_count', label: 'Manual Count', description: 'Set exact quantity based on physical count' },
-    { value: 'quantity_change', label: 'Quantity Change', description: 'Increase or decrease by specific amount' }
+    { value: 'correction', label: 'Stock Correction', description: 'Correct inventory based on physical count' },
+    { value: 'increase', label: 'Increase Stock', description: 'Add additional units to inventory' },
+    { value: 'decrease', label: 'Decrease Stock', description: 'Remove units from inventory' }
   ];
 
   const reasonOptions = [
@@ -244,7 +243,7 @@ export const InventoryAdjustmentForm: React.FC<InventoryAdjustmentFormProps> = (
                     ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20'
                     : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
                 }`}
-                onClick={() => handleAdjustmentTypeChange(option.value as 'manual_count' | 'quantity_change')}
+                onClick={() => handleAdjustmentTypeChange(option.value as 'increase' | 'decrease' | 'correction')}
               >
                 <div className="flex items-start gap-3">
                   <input
@@ -252,7 +251,7 @@ export const InventoryAdjustmentForm: React.FC<InventoryAdjustmentFormProps> = (
                     name="adjustmentType"
                     value={option.value}
                     checked={formData.adjustmentType === option.value}
-                    onChange={() => handleAdjustmentTypeChange(option.value as 'manual_count' | 'quantity_change')}
+                    onChange={() => handleAdjustmentTypeChange(option.value as 'increase' | 'decrease' | 'correction')}
                     className="mt-1 w-4 h-4 text-yellow-500 focus:ring-yellow-500"
                   />
                   <div>
@@ -267,77 +266,69 @@ export const InventoryAdjustmentForm: React.FC<InventoryAdjustmentFormProps> = (
 
         {/* Quantity Input */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {formData.adjustmentType === 'manual_count' ? (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Actual Count *
-              </label>
-              <input
-                type="number"
-                name="newQuantity"
-                value={formData.newQuantity || ''}
-                onChange={handleInputChange}
-                min="0"
-                step="1"
-                required
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                placeholder="Enter actual counted quantity"
-              />
-            </div>
-          ) : (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Quantity Change *
-              </label>
-              <input
-                type="number"
-                name="quantityChange"
-                value={formData.quantityChange || ''}
-                onChange={handleInputChange}
-                step="1"
-                required
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                placeholder="Enter +/- change"
-              />
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Use positive numbers to increase, negative to decrease
-              </p>
-            </div>
-          )}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Adjustment Quantity *
+            </label>
+            <input
+              type="number"
+              name="quantity"
+              value={formData.quantity || ''}
+              onChange={handleInputChange}
+              min="0"
+              step="1"
+              required
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+              placeholder="Enter quantity"
+            />
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              {formData.adjustmentType === 'correction' ? 'Enter the correct total quantity' : 
+               formData.adjustmentType === 'increase' ? 'Enter quantity to add' : 'Enter quantity to remove'}
+            </p>
+          </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              New Total Quantity
+              Current Stock
             </label>
             <div className="px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white">
-              {formData.newQuantity} units
+              {selectedProduct ? (selectedProduct.totalUnits || selectedProduct.stock || 0) : 0} units
             </div>
           </div>
         </div>
 
-        {/* Difference Display */}
-        {formData.quantityChange !== 0 && (
+        {/* Adjustment Preview */}
+        {formData.quantity > 0 && (
           <div className={`p-4 rounded-lg border ${
-            formData.quantityChange > 0 
+            formData.adjustmentType === 'increase' 
               ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' 
-              : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+              : formData.adjustmentType === 'decrease'
+              ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+              : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
           }`}>
             <div className="flex items-center gap-2">
-              {formData.quantityChange > 0 ? (
+              {formData.adjustmentType === 'increase' ? (
                 <svg className="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 11l5-5m0 0l5 5m-5-5v12" />
                 </svg>
-              ) : (
+              ) : formData.adjustmentType === 'decrease' ? (
                 <svg className="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 13l-5 5m0 0l-5-5m5 5V6" />
                 </svg>
+              ) : (
+                <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
               )}
               <span className={`font-medium ${
-                formData.quantityChange > 0 
+                formData.adjustmentType === 'increase' 
                   ? 'text-green-900 dark:text-green-100' 
-                  : 'text-red-900 dark:text-red-100'
+                  : formData.adjustmentType === 'decrease'
+                  ? 'text-red-900 dark:text-red-100'
+                  : 'text-blue-900 dark:text-blue-100'
               }`}>
-                {formData.quantityChange > 0 ? 'Increase' : 'Decrease'} of {Math.abs(formData.quantityChange)} units
+                {formData.adjustmentType === 'correction' ? `Set to ${formData.quantity}` : 
+                 `${formData.adjustmentType} by ${formData.quantity}`} units
               </span>
             </div>
           </div>
@@ -391,7 +382,7 @@ export const InventoryAdjustmentForm: React.FC<InventoryAdjustmentFormProps> = (
           )}
           <button
             type="submit"
-            disabled={loading || !selectedProduct || formData.quantityChange === 0}
+            disabled={loading || !selectedProduct || formData.quantity === 0}
             className="flex-1 sm:flex-none px-6 py-3 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
           >
             {loading ? (

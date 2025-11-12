@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { SupplierService } from '@/lib/services/inventory/supplierService';
 import { Supplier } from '@/lib/services/products/types';
-import { SupplierForm } from './SupplierForm';
-import { useModal } from '@/hooks/useModal';
 
 interface SuppliersListProps {
   className?: string;
@@ -20,10 +19,9 @@ export const SuppliersList: React.FC<SuppliersListProps> = ({
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   
-  const createModal = useModal();
-  const editModal = useModal();
-  const deleteModal = useModal();
+  const router = useRouter();
 
   useEffect(() => {
     loadSuppliers();
@@ -48,26 +46,23 @@ export const SuppliersList: React.FC<SuppliersListProps> = ({
     }
   };
 
-  const handleSupplierCreated = (supplier: Supplier) => {
-    setSuppliers(prev => [supplier, ...prev]);
-    createModal.closeModal();
+  const handleAddSupplier = () => {
+    router.push('/inventory/suppliers/add');
   };
 
-  const handleSupplierUpdated = (updatedSupplier: Supplier) => {
-    setSuppliers(prev => prev.map(s => s.id === updatedSupplier.id ? updatedSupplier : s));
-    setSelectedSupplier(null);
-    editModal.closeModal();
+  const handleEditSupplier = (supplier: Supplier) => {
+    router.push(`/inventory/suppliers/edit/${supplier.id}`);
   };
 
   const handleDeleteSupplier = async () => {
-    if (!selectedSupplier) return;
+    if (!selectedSupplier || !selectedSupplier.id) return;
 
     try {
       const response = await SupplierService.deleteSupplier(selectedSupplier.id);
       if (response.success) {
         setSuppliers(prev => prev.filter(s => s.id !== selectedSupplier.id));
         setSelectedSupplier(null);
-        deleteModal.closeModal();
+        setShowDeleteModal(false);
       } else {
         setError(response.error || 'Failed to delete supplier');
       }
@@ -129,7 +124,7 @@ export const SuppliersList: React.FC<SuppliersListProps> = ({
             </h3>
             {!selectionMode && (
               <button
-                onClick={createModal.openModal}
+                onClick={handleAddSupplier}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -180,7 +175,7 @@ export const SuppliersList: React.FC<SuppliersListProps> = ({
               </p>
               {!searchTerm && !selectionMode && (
                 <button
-                  onClick={createModal.openModal}
+                  onClick={handleAddSupplier}
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 >
                   Add First Supplier
@@ -206,7 +201,7 @@ export const SuppliersList: React.FC<SuppliersListProps> = ({
                         <span className="px-2 py-1 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-xs rounded">
                           {supplier.code}
                         </span>
-                        {supplier.status === 'inactive' && (
+                        {!supplier.isActive && (
                           <span className="px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-xs rounded">
                             Inactive
                           </span>
@@ -244,10 +239,7 @@ export const SuppliersList: React.FC<SuppliersListProps> = ({
                     {!selectionMode && (
                       <div className="flex items-center gap-2 ml-4">
                         <button
-                          onClick={() => {
-                            setSelectedSupplier(supplier);
-                            editModal.open();
-                          }}
+                          onClick={() => handleEditSupplier(supplier)}
                           className="p-2 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                           title="Edit supplier"
                         >
@@ -258,7 +250,7 @@ export const SuppliersList: React.FC<SuppliersListProps> = ({
                         <button
                           onClick={() => {
                             setSelectedSupplier(supplier);
-                            deleteModal.open();
+                            setShowDeleteModal(true);
                           }}
                           className="p-2 text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
                           title="Delete supplier"
@@ -277,36 +269,8 @@ export const SuppliersList: React.FC<SuppliersListProps> = ({
         </div>
       </div>
 
-      {/* Create Supplier Modal */}
-      {createModal.isOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-gray-900 rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <SupplierForm
-              onSuccess={handleSupplierCreated}
-              onCancel={createModal.close}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Edit Supplier Modal */}
-      {editModal.isOpen && selectedSupplier && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-gray-900 rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <SupplierForm
-              supplier={selectedSupplier}
-              onSuccess={handleSupplierUpdated}
-              onCancel={() => {
-                setSelectedSupplier(null);
-                editModal.close();
-              }}
-            />
-          </div>
-        </div>
-      )}
-
       {/* Delete Confirmation Modal */}
-      {deleteModal.isOpen && selectedSupplier && (
+      {showDeleteModal && selectedSupplier && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white dark:bg-gray-900 rounded-xl max-w-md w-full p-6">
             <div className="flex items-center gap-4 mb-4">
@@ -330,7 +294,7 @@ export const SuppliersList: React.FC<SuppliersListProps> = ({
               <button
                 onClick={() => {
                   setSelectedSupplier(null);
-                  deleteModal.close();
+                  setShowDeleteModal(false);
                 }}
                 className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
               >

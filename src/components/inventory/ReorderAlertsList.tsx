@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ReorderAlertsService, ReorderAlert, ReorderRecommendation } from '@/lib/services/inventory/reorderAlertsService';
-import { PurchaseOrderService } from '@/lib/services/inventory/purchaseOrderService';
 
 interface ReorderAlertsListProps {
   className?: string;
@@ -55,7 +54,7 @@ export const ReorderAlertsList: React.FC<ReorderAlertsListProps> = ({
       } else {
         setError(response.error || 'Failed to acknowledge alert');
       }
-    } catch (err) {
+    } catch {
       setError('Failed to acknowledge alert');
     } finally {
       setActionLoading(null);
@@ -72,7 +71,7 @@ export const ReorderAlertsList: React.FC<ReorderAlertsListProps> = ({
       } else {
         setError(response.error || 'Failed to resolve alert');
       }
-    } catch (err) {
+    } catch {
       setError('Failed to resolve alert');
     } finally {
       setActionLoading(null);
@@ -90,7 +89,7 @@ export const ReorderAlertsList: React.FC<ReorderAlertsListProps> = ({
       // TODO: Implement PO creation from alert
       // This would need more supplier details and product info
       onAlertAction?.(productId, 'order');
-    } catch (err) {
+    } catch {
       setError('Failed to create purchase order');
     } finally {
       setActionLoading(null);
@@ -277,7 +276,7 @@ export const ReorderAlertsList: React.FC<ReorderAlertsListProps> = ({
                       <div className="flex items-center space-x-4 mt-3 text-xs text-gray-500 dark:text-gray-400">
                         <span>Alert created: {formatDate(alert.alertDate)}</span>
                         {alert.suggestedSupplier && (
-                          <span>Supplier: {alert.suggestedSupplier.supplierName}</span>
+                          <span>Supplier: {alert.suggestedSupplier.name}</span>
                         )}
                       </div>
                     </div>
@@ -299,7 +298,7 @@ export const ReorderAlertsList: React.FC<ReorderAlertsListProps> = ({
                             onClick={() => handleCreatePurchaseOrder(
                               alert.productId, 
                               alert.reorderQuantity, 
-                              alert.suggestedSupplier?.supplierId
+                              alert.suggestedSupplier?.id
                             )}
                             disabled={actionLoading === alert.productId}
                             className="px-3 py-1.5 text-xs font-medium text-white bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-600 rounded-md transition-colors disabled:opacity-50"
