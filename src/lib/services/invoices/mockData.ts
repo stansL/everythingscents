@@ -1,4 +1,4 @@
-import { Invoice, InvoiceItem, Customer, Category, InvoiceMetrics, DateOption } from './types';
+import { Invoice, InvoiceItem, Customer, Category, InvoiceMetrics, DateOption, WorkflowStatus, PaymentMethod, Payment, DeliveryInfo } from './types';
 
 // Sample customers data
 export const mockCustomers: Customer[] = [
@@ -112,6 +112,129 @@ export const generateMockInvoices = (count: number = 30): Invoice[] => {
       status = Math.random() < 0.7 ? 'paid' : 'unpaid';
     }
 
+    // Generate workflow status based on invoice status and randomness
+    let workflowStatus: WorkflowStatus;
+    if (status === 'draft') {
+      workflowStatus = WorkflowStatus.DRAFT;
+    } else if (status === 'paid') {
+      // Paid invoices progress through workflow
+      const paidStatuses = [
+        WorkflowStatus.PAID,
+        WorkflowStatus.OUT_FOR_DELIVERY,
+        WorkflowStatus.DELIVERED,
+        WorkflowStatus.PICKED_UP
+      ];
+      workflowStatus = getRandomElement(paidStatuses);
+    } else if (status === 'unpaid') {
+      // Unpaid invoices are either sent or partially paid
+      workflowStatus = Math.random() < 0.3 
+        ? WorkflowStatus.PARTIALLY_PAID 
+        : WorkflowStatus.SENT;
+    } else {
+      workflowStatus = WorkflowStatus.SENT;
+    }
+
+    // Generate payments for paid or partially paid invoices
+    const payments: Payment[] = [];
+    if (workflowStatus === WorkflowStatus.PAID || 
+        workflowStatus === WorkflowStatus.OUT_FOR_DELIVERY || 
+        workflowStatus === WorkflowStatus.DELIVERED ||
+        workflowStatus === WorkflowStatus.PICKED_UP) {
+      // Fully paid - generate 1-3 payments that sum to total
+      const numPayments = Math.floor(Math.random() * 3) + 1;
+      let remainingAmount = amount;
+      
+      for (let p = 0; p < numPayments; p++) {
+        const isLastPayment = p === numPayments - 1;
+        const paymentAmount = isLastPayment 
+          ? remainingAmount 
+          : Math.floor(remainingAmount * (Math.random() * 0.5 + 0.3)); // 30-80% of remaining
+        
+        const paymentMethod = getRandomElement([
+          PaymentMethod.CASH,
+          PaymentMethod.MPESA,
+          PaymentMethod.BANK_TRANSFER
+        ]);
+        
+        const paymentDate = new Date(issueDate.getTime() + Math.random() * (dueDate.getTime() - issueDate.getTime()));
+        
+        payments.push({
+          id: `pay-${i}-${p + 1}`,
+          amount: paymentAmount,
+          method: paymentMethod,
+          reference: paymentMethod === PaymentMethod.MPESA ? `MPE${Math.floor(Math.random() * 1000000000)}` : undefined,
+          processedAt: paymentDate,
+          notes: p === 0 ? 'Initial payment' : isLastPayment ? 'Final payment' : 'Partial payment'
+        });
+        
+        remainingAmount -= paymentAmount;
+      }
+    } else if (workflowStatus === WorkflowStatus.PARTIALLY_PAID) {
+      // Partially paid - generate 1 payment for 30-70% of total
+      const paymentPercentage = Math.random() * 0.4 + 0.3; // 30-70%
+      const paymentAmount = Math.floor(amount * paymentPercentage);
+      const paymentMethod = getRandomElement([
+        PaymentMethod.CASH,
+        PaymentMethod.MPESA,
+        PaymentMethod.BANK_TRANSFER
+      ]);
+      
+      payments.push({
+        id: `pay-${i}-1`,
+        amount: paymentAmount,
+        method: paymentMethod,
+        reference: paymentMethod === PaymentMethod.MPESA ? `MPE${Math.floor(Math.random() * 1000000000)}` : undefined,
+        processedAt: new Date(issueDate.getTime() + Math.random() * (now.getTime() - issueDate.getTime())),
+        notes: 'Partial payment received'
+      });
+    }
+
+    // Generate delivery info for invoices that are paid or in delivery
+    let deliveryInfo: DeliveryInfo | undefined;
+    if (workflowStatus === WorkflowStatus.OUT_FOR_DELIVERY || 
+        workflowStatus === WorkflowStatus.DELIVERED ||
+        workflowStatus === WorkflowStatus.PICKED_UP) {
+      
+      const deliveryType = Math.random() < 0.6 ? 'delivery' : 'pickup';
+      const scheduledDate = new Date(issueDate.getTime() + Math.random() * 14 * 24 * 60 * 60 * 1000); // Within 2 weeks
+      
+      if (workflowStatus === WorkflowStatus.PICKED_UP) {
+        deliveryInfo = {
+          type: 'pickup',
+          status: 'completed',
+          scheduledDate,
+          completedDate: new Date(scheduledDate.getTime() + Math.random() * 24 * 60 * 60 * 1000),
+          recipientName: customer.name,
+          recipientPhone: `+254 7${Math.floor(Math.random() * 100000000)}`,
+          notes: 'Customer picked up order at store'
+        };
+      } else if (workflowStatus === WorkflowStatus.DELIVERED) {
+        deliveryInfo = {
+          type: 'delivery',
+          status: 'completed',
+          scheduledDate,
+          completedDate: new Date(scheduledDate.getTime() + Math.random() * 24 * 60 * 60 * 1000),
+          recipientName: customer.name,
+          recipientPhone: `+254 7${Math.floor(Math.random() * 100000000)}`,
+          address: `${Math.floor(Math.random() * 9999) + 1} Main St, Suite ${Math.floor(Math.random() * 500) + 1}, City`,
+          notes: 'Delivered successfully'
+        };
+      } else if (workflowStatus === WorkflowStatus.OUT_FOR_DELIVERY) {
+        deliveryInfo = {
+          type: deliveryType,
+          status: 'out_for_delivery',
+          scheduledDate,
+          recipientName: customer.name,
+          recipientPhone: `+254 7${Math.floor(Math.random() * 100000000)}`,
+          address: deliveryType === 'delivery' ? `${Math.floor(Math.random() * 9999) + 1} Main St, Suite ${Math.floor(Math.random() * 500) + 1}, City` : undefined,
+          notes: deliveryType === 'delivery' ? 'Out for delivery' : 'Ready for pickup'
+        };
+      }
+    }
+
+    // Determine order source
+    const orderSource = getRandomElement(['walk-in', 'pwa', 'staff-assisted'] as const);
+
     const invoice: Invoice = {
       id: `${323534 + i}`,
       clientName: customer.name,
@@ -129,7 +252,15 @@ export const generateMockInvoices = (count: number = 30): Invoice[] => {
       description: `${category.name} services for ${customer.company}`,
       notes: Math.random() < 0.5 ? `Thank you for your business with ${customer.company}. Payment terms: Net 30 days.` : undefined,
       createdAt: issueDate,
-      updatedAt: new Date()
+      updatedAt: new Date(),
+      // Phase 1 enhancements
+      workflowStatus,
+      payments,
+      deliveryInfo,
+      orderSource,
+      paymentDueDate: dueDate,
+      deliveryScheduledDate: deliveryInfo?.scheduledDate,
+      deliveryCompletedDate: deliveryInfo?.completedDate
     };
 
     invoices.push(invoice);

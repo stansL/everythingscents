@@ -91,9 +91,9 @@ const DeliveryStatusToggle: React.FC<DeliveryStatusToggleProps> = ({
   };
 
   return (
-    <div className={`rounded-lg border border-stroke bg-white p-6 shadow-default dark:border-strokedark dark:bg-boxdark ${className}`}>
-      <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-xl font-semibold text-black dark:text-white">
+    <div className={`rounded-lg border border-stroke bg-white p-4 shadow-default dark:border-strokedark dark:bg-boxdark ${className}`}>
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="text-base font-semibold text-black dark:text-white">
           Delivery Information
         </h3>
         <button
@@ -104,47 +104,49 @@ const DeliveryStatusToggle: React.FC<DeliveryStatusToggleProps> = ({
         </button>
       </div>
 
-      {/* Delivery Type Selection */}
-      <div className="mb-6">
-        <label className="mb-2.5 block text-sm font-medium text-black dark:text-white">
-          Delivery Type
-        </label>
-        <div className="flex gap-3">
-          <button
-            onClick={() => handleTypeChange('pickup')}
-            disabled={!isEditing}
-            className={`flex-1 rounded border py-3 px-4 font-medium transition ${
-              localInfo.type === 'pickup'
-                ? 'border-primary bg-primary text-white'
-                : 'border-stroke bg-gray hover:border-primary dark:border-strokedark dark:bg-meta-4'
-            } disabled:cursor-not-allowed disabled:opacity-60`}
-          >
-            Pickup
-          </button>
-          <button
-            onClick={() => handleTypeChange('delivery')}
-            disabled={!isEditing}
-            className={`flex-1 rounded border py-3 px-4 font-medium transition ${
-              localInfo.type === 'delivery'
-                ? 'border-primary bg-primary text-white'
-                : 'border-stroke bg-gray hover:border-primary dark:border-strokedark dark:bg-meta-4'
-            } disabled:cursor-not-allowed disabled:opacity-60`}
-          >
-            Delivery
-          </button>
+      {/* Delivery Type & Status - Grid */}
+      <div className="grid grid-cols-2 gap-3 mb-3">
+        {/* Delivery Type Selection */}
+        <div>
+          <label className="mb-2 block text-sm font-medium text-black dark:text-white">
+            Type
+          </label>
+          <div className="flex gap-2">
+            <button
+              onClick={() => handleTypeChange('pickup')}
+              disabled={!isEditing}
+              className={`flex-1 rounded border py-2 px-3 text-sm font-medium transition ${
+                localInfo.type === 'pickup'
+                  ? 'border-primary bg-primary text-white'
+                  : 'border-stroke bg-gray hover:border-primary dark:border-strokedark dark:bg-meta-4'
+              } disabled:cursor-not-allowed disabled:opacity-60`}
+            >
+              Pickup
+            </button>
+            <button
+              onClick={() => handleTypeChange('delivery')}
+              disabled={!isEditing}
+              className={`flex-1 rounded border py-2 px-3 text-sm font-medium transition ${
+                localInfo.type === 'delivery'
+                  ? 'border-primary bg-primary text-white'
+                  : 'border-stroke bg-gray hover:border-primary dark:border-strokedark dark:bg-meta-4'
+              } disabled:cursor-not-allowed disabled:opacity-60`}
+            >
+              Delivery
+            </button>
+          </div>
         </div>
-      </div>
 
-      {/* Delivery Status */}
-      <div className="mb-6">
-        <label className="mb-2.5 block text-sm font-medium text-black dark:text-white">
-          Status
-        </label>
-        {isEditing ? (
+        {/* Status */}
+        <div>
+          <label className="mb-2 block text-sm font-medium text-black dark:text-white">
+            Status
+          </label>
           <select
             value={localInfo.status}
             onChange={(e) => handleStatusChange(e.target.value as 'pending' | 'out_for_delivery' | 'completed')}
-            className="w-full rounded border-[1.5px] border-stroke bg-transparent px-5 py-3 font-medium outline-none transition focus:border-primary active:border-primary dark:border-form-strokedark dark:bg-form-input"
+            disabled={!isEditing}
+            className="w-full rounded border-[1.5px] border-stroke bg-transparent px-3 py-2 text-sm font-medium outline-none transition focus:border-primary active:border-primary disabled:cursor-default disabled:bg-whiter dark:border-form-strokedark dark:bg-form-input dark:focus:border-primary"
           >
             <option value="pending">Pending</option>
             {localInfo.type === 'delivery' && (
@@ -152,16 +154,12 @@ const DeliveryStatusToggle: React.FC<DeliveryStatusToggleProps> = ({
             )}
             <option value="completed">Completed</option>
           </select>
-        ) : (
-          <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${getStatusColor(localInfo.status)}`}>
-            {getStatusLabel(localInfo.status)}
-          </span>
-        )}
+        </div>
       </div>
 
       {/* Scheduled Date */}
-      <div className="mb-6">
-        <label className="mb-2.5 block text-sm font-medium text-black dark:text-white">
+      <div className="mb-3">
+        <label className="mb-2 block text-sm font-medium text-black dark:text-white">
           Scheduled Date
         </label>
         <input
@@ -169,72 +167,74 @@ const DeliveryStatusToggle: React.FC<DeliveryStatusToggleProps> = ({
           value={formatDateForInput(localInfo.scheduledDate)}
           onChange={(e) => handleScheduledDateChange(e.target.value)}
           disabled={!isEditing}
-          className="w-full rounded border-[1.5px] border-stroke bg-transparent px-5 py-3 font-medium outline-none transition focus:border-primary active:border-primary disabled:cursor-default disabled:bg-whiter dark:border-form-strokedark dark:bg-form-input"
+          className="w-full rounded border-[1.5px] border-stroke bg-transparent px-3 py-2 text-sm font-medium outline-none transition focus:border-primary active:border-primary disabled:cursor-default disabled:bg-whiter dark:border-form-strokedark dark:bg-form-input"
         />
       </div>
 
       {/* Recipient Information */}
       {isEditing && (
-        <>
-          <div className="mb-4">
-            <label className="mb-2.5 block text-sm font-medium text-black dark:text-white">
-              Recipient Name
-            </label>
-            <input
-              type="text"
-              value={localInfo.recipientName || ''}
-              onChange={(e) => handleFieldUpdate('recipientName', e.target.value)}
-              placeholder="Enter recipient name"
-              className="w-full rounded border-[1.5px] border-stroke bg-transparent px-5 py-3 font-medium outline-none transition focus:border-primary active:border-primary dark:border-form-strokedark dark:bg-form-input"
-            />
-          </div>
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-2 block text-sm font-medium text-black dark:text-white">
+                Recipient Name
+              </label>
+              <input
+                type="text"
+                value={localInfo.recipientName || ''}
+                onChange={(e) => handleFieldUpdate('recipientName', e.target.value)}
+                placeholder="Name"
+                className="w-full rounded border-[1.5px] border-stroke bg-transparent px-3 py-2 text-sm font-medium outline-none transition focus:border-primary active:border-primary dark:border-form-strokedark dark:bg-form-input"
+              />
+            </div>
 
-          <div className="mb-4">
-            <label className="mb-2.5 block text-sm font-medium text-black dark:text-white">
-              Recipient Phone
-            </label>
-            <input
-              type="tel"
-              value={localInfo.recipientPhone || ''}
-              onChange={(e) => handleFieldUpdate('recipientPhone', e.target.value)}
-              placeholder="Enter phone number"
-              className="w-full rounded border-[1.5px] border-stroke bg-transparent px-5 py-3 font-medium outline-none transition focus:border-primary active:border-primary dark:border-form-strokedark dark:bg-form-input"
-            />
+            <div>
+              <label className="mb-2 block text-sm font-medium text-black dark:text-white">
+                Phone
+              </label>
+              <input
+                type="tel"
+                value={localInfo.recipientPhone || ''}
+                onChange={(e) => handleFieldUpdate('recipientPhone', e.target.value)}
+                placeholder="Phone"
+                className="w-full rounded border-[1.5px] border-stroke bg-transparent px-3 py-2 text-sm font-medium outline-none transition focus:border-primary active:border-primary dark:border-form-strokedark dark:bg-form-input"
+              />
+            </div>
           </div>
 
           {localInfo.type === 'delivery' && (
-            <div className="mb-4">
-              <label className="mb-2.5 block text-sm font-medium text-black dark:text-white">
+            <div>
+              <label className="mb-2 block text-sm font-medium text-black dark:text-white">
                 Delivery Address
               </label>
               <textarea
                 value={localInfo.address || ''}
                 onChange={(e) => handleFieldUpdate('address', e.target.value)}
-                placeholder="Enter delivery address"
-                rows={3}
-                className="w-full rounded border-[1.5px] border-stroke bg-transparent px-5 py-3 font-medium outline-none transition focus:border-primary active:border-primary dark:border-form-strokedark dark:bg-form-input"
+                placeholder="Delivery address"
+                rows={2}
+                className="w-full rounded border-[1.5px] border-stroke bg-transparent px-3 py-2 text-sm font-medium outline-none transition focus:border-primary active:border-primary dark:border-form-strokedark dark:bg-form-input"
               />
             </div>
           )}
 
-          <div className="mb-4">
-            <label className="mb-2.5 block text-sm font-medium text-black dark:text-white">
+          <div>
+            <label className="mb-2 block text-sm font-medium text-black dark:text-white">
               Notes
             </label>
             <textarea
               value={localInfo.notes || ''}
               onChange={(e) => handleFieldUpdate('notes', e.target.value)}
-              placeholder="Additional notes"
+              placeholder="Optional notes"
               rows={2}
-              className="w-full rounded border-[1.5px] border-stroke bg-transparent px-5 py-3 font-medium outline-none transition focus:border-primary active:border-primary dark:border-form-strokedark dark:bg-form-input"
+              className="w-full rounded border-[1.5px] border-stroke bg-transparent px-3 py-2 text-sm font-medium outline-none transition focus:border-primary active:border-primary dark:border-form-strokedark dark:bg-form-input"
             />
           </div>
-        </>
+        </div>
       )}
 
       {/* Display mode for recipient info */}
-      {!isEditing && (localInfo.recipientName || localInfo.recipientPhone || localInfo.address) && (
-        <div className="mt-4 space-y-2 rounded-lg bg-gray-50 p-4 dark:bg-meta-4">
+      {!isEditing && (localInfo.recipientName || localInfo.recipientPhone || localInfo.address || localInfo.notes) && (
+        <div className="mt-3 space-y-2 rounded-lg bg-gray-50 p-3 dark:bg-meta-4">
           {localInfo.recipientName && (
             <div>
               <p className="text-xs text-gray-500 dark:text-gray-400">Recipient:</p>
@@ -264,10 +264,10 @@ const DeliveryStatusToggle: React.FC<DeliveryStatusToggleProps> = ({
 
       {/* Completed Date (read-only) */}
       {localInfo.completedDate && (
-        <div className="mt-4 rounded-lg bg-green-50 p-4 dark:bg-green-900/20">
+        <div className="mt-3 rounded-lg bg-green-50 p-3 dark:bg-green-900/20">
           <p className="text-sm text-green-800 dark:text-green-200">
-            Completed on {new Date(localInfo.completedDate).toLocaleDateString('en-US', {
-              month: 'long',
+            Completed: {new Date(localInfo.completedDate).toLocaleDateString('en-US', {
+              month: 'short',
               day: 'numeric',
               year: 'numeric',
             })}

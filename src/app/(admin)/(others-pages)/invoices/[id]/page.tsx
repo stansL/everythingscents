@@ -3,10 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
-import { Invoice, WorkflowStatus, DeliveryInfo } from '@/lib/services/invoices/types';
+import { Invoice, DeliveryInfo } from '@/lib/services/invoices/types';
 import { InvoiceService } from '@/lib/services/invoices/invoiceService';
 import { formatAmountFromCents, formatDate, getStatusColor } from '@/lib/utils/formatters';
 import { WorkflowStatusBadge, PaymentRecordingForm, PaymentHistory, DeliveryStatusToggle } from '@/components/invoices';
+import { useModal } from '@/hooks/useModal';
+import { Modal } from '@/components/ui/modal';
 
 export default function InvoiceViewPage() {
   const params = useParams();
@@ -16,6 +18,7 @@ export default function InvoiceViewPage() {
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { isOpen: isPaymentModalOpen, openModal: openPaymentModal, closeModal: closePaymentModal } = useModal();
 
   const loadInvoice = async () => {
     if (!invoiceId) return;
@@ -41,6 +44,7 @@ export default function InvoiceViewPage() {
 
   useEffect(() => {
     loadInvoice();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [invoiceId]);
 
   const handlePaymentRecorded = () => {
@@ -143,6 +147,20 @@ export default function InvoiceViewPage() {
           {/* Workflow Status Badge */}
           {invoice.workflowStatus && (
             <WorkflowStatusBadge status={invoice.workflowStatus} />
+          )}
+          {/* Outstanding Balance Badge */}
+          {invoice.workflowStatus && getRemainingBalance() > 0 && (
+            <div className="rounded-lg border-2 border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20 px-4 py-2">
+              <p className="text-xs font-medium text-red-600 dark:text-red-400 uppercase tracking-wide">
+                Outstanding Balance
+              </p>
+              <p className="text-lg font-bold text-red-700 dark:text-red-300">
+                KES {(getRemainingBalance() / 100).toLocaleString('en-KE', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </p>
+            </div>
           )}
         </div>
         <div className="flex items-center gap-3">
@@ -261,26 +279,22 @@ export default function InvoiceViewPage() {
             </div>
           )}
 
-          {/* Payment Recording Section */}
-          {invoice.workflowStatus && getRemainingBalance() > 0 && (
-            <PaymentRecordingForm
-              invoiceId={invoice.id}
-              remainingBalance={getRemainingBalance()}
-              onPaymentRecorded={handlePaymentRecorded}
-            />
-          )}
-
-          {/* Payment History */}
-          {invoice.payments && invoice.payments.length > 0 && (
-            <PaymentHistory payments={invoice.payments} />
-          )}
-
-          {/* Delivery Status */}
+          {/* Workflow Management - Compact Grid Layout */}
           {invoice.deliveryInfo && (
-            <DeliveryStatusToggle
-              deliveryInfo={invoice.deliveryInfo}
-              onUpdate={handleDeliveryUpdate}
-            />
+            <div className="grid grid-cols-1 gap-4">
+              {/* Delivery Status */}
+              <DeliveryStatusToggle
+                deliveryInfo={invoice.deliveryInfo}
+                onUpdate={handleDeliveryUpdate}
+              />
+            </div>
+          )}
+
+          {/* Payment History - Full Width */}
+          {invoice.payments && invoice.payments.length > 0 && (
+            <div className="mt-4">
+              <PaymentHistory payments={invoice.payments} />
+            </div>
           )}
         </div>
 
@@ -351,19 +365,15 @@ export default function InvoiceViewPage() {
               Quick Actions
             </h3>
             <div className="space-y-3">
-              {/* Proceed to Payment - Disabled if already paid */}
-              <button
-                onClick={() => {/* TODO: Proceed to Payment */}}
-                disabled={invoice.status === 'paid'}
-                className={`w-full px-4 py-2 rounded-lg font-medium transition-colors ${
-                  invoice.status === 'paid'
-                    ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
-                    : 'bg-green-600 text-white hover:bg-green-700'
-                }`}
-                title={invoice.status === 'paid' ? 'Invoice is already paid' : 'Proceed to payment'}
-              >
-                {invoice.status === 'paid' ? 'Already Paid' : 'Proceed to Payment'}
-              </button>
+              {/* Make Payment - Only show if there's remaining balance */}
+              {invoice.workflowStatus && getRemainingBalance() > 0 && (
+                <button
+                  onClick={openPaymentModal}
+                  className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+                >
+                  Make Payment
+                </button>
+              )}
               
               {/* Print Invoice */}
               <button
@@ -410,6 +420,34 @@ export default function InvoiceViewPage() {
           </div>
         </div>
       </div>
+
+      {/* Payment Modal */}
+      {invoice && invoice.workflowStatus && getRemainingBalance() > 0 && (
+        <Modal isOpen={isPaymentModalOpen} onClose={closePaymentModal} className="max-w-[600px] m-4">
+          <div className="p-6">
+            <div className="mb-4 flex items-center gap-3">
+              <h2 className="text-xl font-semibold text-black dark:text-white">
+                Record Payment
+              </h2>
+              <span className="text-gray-400 dark:text-gray-600">—</span>
+              <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5">
+                <p className="text-xs font-medium text-blue-600 dark:text-blue-400 whitespace-nowrap">
+                  Balance: KES {(getRemainingBalance() / 100).toLocaleString('en-KE', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </p>
+              </div>
+            </div>
+            <PaymentRecordingForm
+              invoiceId={invoice.id}
+              remainingBalance={getRemainingBalance()}
+              onPaymentRecorded={handlePaymentRecorded}
+              onClose={closePaymentModal}
+            />
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

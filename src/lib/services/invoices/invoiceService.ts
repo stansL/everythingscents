@@ -21,9 +21,11 @@ import {
 } from './mockData';
 
 import { FirestoreService } from '../../firebase/firestore';
+import { COLLECTIONS } from '../../firebase/collections';
 
 // Constants
-const COLLECTION_NAME = 'invoices';
+const COLLECTION_NAME = COLLECTIONS.INVOICES;
+const USE_FIREBASE = process.env.NEXT_PUBLIC_USE_FIREBASE === 'true';
 
 // Simulate async operations with delays
 const simulateDelay = (ms: number = 500): Promise<void> => {
@@ -479,58 +481,128 @@ export class InvoiceService {
     }
   }
 
-  // Record a payment for an invoice (Phase 1)
+  // Record a payment for an invoice (Phase 1) - With Firebase support
   static async recordPayment(
     invoiceId: string,
     payment: Omit<import('./types').Payment, 'id'>
   ): Promise<ServiceResponse<Invoice>> {
     try {
-      await simulateDelay(300);
-      
-      const invoiceIndex = this.invoices.findIndex(inv => inv.id === invoiceId);
-      if (invoiceIndex === -1) {
-        return {
-          success: false,
-          error: 'Invoice not found'
-        };
-      }
-
-      const invoice = this.invoices[invoiceIndex];
-      
       // Generate payment ID
+      const paymentId = `PAY-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       const newPayment: import('./types').Payment = {
         ...payment,
-        id: `PAY-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        id: paymentId,
       };
 
-      // Add payment to invoice
-      const updatedPayments = [...(invoice.payments || []), newPayment];
-      
-      // Calculate total paid
-      const totalPaid = updatedPayments.reduce((sum, p) => sum + p.amount, 0);
-      
-      // Update workflow status based on payment
-      let newWorkflowStatus = invoice.workflowStatus;
-      if (totalPaid >= invoice.amount) {
-        newWorkflowStatus = 'paid' as import('./types').WorkflowStatus;
-      } else if (totalPaid > 0) {
-        newWorkflowStatus = 'partially_paid' as import('./types').WorkflowStatus;
+      if (USE_FIREBASE) {
+        // Firebase implementation
+        try {
+          // Get current invoice
+          const invoiceData = await FirestoreService.getById(COLLECTION_NAME, invoiceId);
+          if (!invoiceData) {
+            return {
+              success: false,
+              error: 'Invoice not found'
+            };
+          }
+
+          const invoice = invoiceData as Invoice;
+          
+          // Add payment to invoice
+          const updatedPayments = [...(invoice.payments || []), newPayment];
+          
+          // Calculate total paid
+          const totalPaid = updatedPayments.reduce((sum, p) => sum + p.amount, 0);
+          
+          // Update workflow status based on payment
+          let newWorkflowStatus = invoice.workflowStatus;
+          if (totalPaid >= invoice.amount) {
+            newWorkflowStatus = 'paid' as import('./types').WorkflowStatus;
+          } else if (totalPaid > 0) {
+            newWorkflowStatus = 'partially_paid' as import('./types').WorkflowStatus;
+          }
+
+          // Update invoice in Firebase
+          await FirestoreService.update(COLLECTION_NAME, invoiceId, {
+            payments: updatedPayments,
+            workflowStatus: newWorkflowStatus,
+          });
+
+          // Also store payment as a separate document for transaction tracking
+          await FirestoreService.create(COLLECTIONS.PAYMENTS, {
+            paymentId: paymentId,
+            invoiceId: invoiceId,
+            amount: newPayment.amount,
+            method: newPayment.method,
+            reference: newPayment.reference,
+            processedAt: newPayment.processedAt,
+            notes: newPayment.notes,
+          });
+
+          // Return updated invoice
+          const updatedInvoice: Invoice = {
+            ...invoice,
+            payments: updatedPayments,
+            workflowStatus: newWorkflowStatus,
+            updatedAt: new Date(),
+          };
+
+          return {
+            success: true,
+            data: updatedInvoice,
+            message: 'Payment recorded successfully'
+          };
+        } catch (error) {
+          console.error('Firebase payment recording error:', error);
+          return {
+            success: false,
+            error: 'Failed to record payment in Firebase'
+          };
+        }
+      } else {
+        // Mock data implementation (fallback)
+        await simulateDelay(300);
+        
+        const invoiceIndex = this.invoices.findIndex(inv => inv.id === invoiceId);
+        if (invoiceIndex === -1) {
+          return {
+            success: false,
+            error: 'Invoice not found'
+          };
+        }
+
+        const invoice = this.invoices[invoiceIndex];
+        
+        // Add payment to invoice
+        const updatedPayments = [...(invoice.payments || []), newPayment];
+        
+        // Calculate total paid
+        const totalPaid = updatedPayments.reduce((sum, p) => sum + p.amount, 0);
+        
+        // Update workflow status based on payment
+        let newWorkflowStatus = invoice.workflowStatus;
+        if (totalPaid >= invoice.amount) {
+          newWorkflowStatus = 'paid' as import('./types').WorkflowStatus;
+        } else if (totalPaid > 0) {
+          newWorkflowStatus = 'partially_paid' as import('./types').WorkflowStatus;
+        }
+
+        // Update invoice
+        this.invoices[invoiceIndex] = {
+          ...invoice,
+          payments: updatedPayments,
+          workflowStatus: newWorkflowStatus,
+          updatedAt: new Date(),
+        };
+
+        return {
+          success: true,
+          data: this.invoices[invoiceIndex],
+          message: 'Payment recorded successfully'
+        };
       }
-
-      // Update invoice
-      this.invoices[invoiceIndex] = {
-        ...invoice,
-        payments: updatedPayments,
-        workflowStatus: newWorkflowStatus,
-        updatedAt: new Date(),
-      };
-
-      return {
-        success: true,
-        data: this.invoices[invoiceIndex],
-        message: 'Payment recorded successfully'
-      };
-    } catch {
+    } catch (error) {
+      console.error('Payment recording error:', error);
       return {
         success: false,
         error: 'Failed to record payment'

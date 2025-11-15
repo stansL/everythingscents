@@ -73,57 +73,55 @@ const PaymentHistory: React.FC<PaymentHistoryProps> = ({
   }
 
   return (
-    <div className={`rounded-lg border border-stroke bg-white p-6 shadow-default dark:border-strokedark dark:bg-boxdark ${className}`}>
-      <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-xl font-semibold text-black dark:text-white">
+    <div className={`rounded-lg border border-stroke bg-white p-4 shadow-default dark:border-strokedark dark:bg-boxdark ${className}`}>
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="text-base font-semibold text-black dark:text-white">
           Payment History
         </h3>
         <div className="text-right">
-          <p className="text-sm text-gray-500 dark:text-gray-400">Total Paid</p>
-          <p className="text-lg font-semibold text-green-600 dark:text-green-400">
+          <p className="text-xs text-gray-500 dark:text-gray-400">Total Paid</p>
+          <p className="text-base font-semibold text-green-600 dark:text-green-400">
             {formatCurrency(totalPaid)}
           </p>
         </div>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-3">
         {payments.map((payment) => (
           <div
             key={payment.id}
-            className="relative border-l-4 border-primary pl-6 pb-6 last:pb-0"
+            className="relative border-l-4 border-primary pl-4 pb-3 last:pb-0"
           >
             {/* Timeline dot */}
-            <div className="absolute -left-2 top-0 h-4 w-4 rounded-full border-4 border-white bg-primary dark:border-boxdark" />
+            <div className="absolute -left-1.5 top-0 h-3 w-3 rounded-full border-2 border-white bg-primary dark:border-boxdark" />
             
             {/* Payment details */}
-            <div className="rounded-lg border border-stroke bg-gray-50 p-4 dark:border-strokedark dark:bg-meta-4">
-              <div className="mb-2 flex items-start justify-between">
+            <div className="rounded-lg border border-stroke bg-gray-50 p-3 dark:border-strokedark dark:bg-meta-4">
+              <div className="mb-1 flex items-start justify-between">
                 <div>
-                  <p className="text-lg font-semibold text-black dark:text-white">
+                  <p className="text-base font-semibold text-black dark:text-white">
                     {formatCurrency(payment.amount)}
                   </p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
                     {formatDate(payment.processedAt)}
                   </p>
                 </div>
-                <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${getMethodColor(payment.method)}`}>
+                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${getMethodColor(payment.method)}`}>
                   {getPaymentMethodLabel(payment.method)}
                 </span>
               </div>
               
               {payment.reference && (
-                <div className="mt-2">
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Reference:</p>
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {payment.reference}
+                <div className="mt-1">
+                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                    Ref: {payment.reference}
                   </p>
                 </div>
               )}
               
               {payment.notes && (
-                <div className="mt-2">
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Notes:</p>
-                  <p className="text-sm text-gray-700 dark:text-gray-300">
+                <div className="mt-1">
+                  <p className="text-xs italic text-gray-600 dark:text-gray-400">
                     {payment.notes}
                   </p>
                 </div>
@@ -134,8 +132,8 @@ const PaymentHistory: React.FC<PaymentHistoryProps> = ({
       </div>
 
       {/* Payment count */}
-      <div className="mt-4 border-t border-stroke pt-4 dark:border-strokedark">
-        <p className="text-sm text-gray-500 dark:text-gray-400">
+      <div className="mt-3 border-t border-stroke pt-3 dark:border-strokedark">
+        <p className="text-xs text-gray-500 dark:text-gray-400">
           {payments.length} {payments.length === 1 ? 'payment' : 'payments'} recorded
         </p>
       </div>
