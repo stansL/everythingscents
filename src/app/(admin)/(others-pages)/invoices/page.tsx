@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import { InvoiceErrorBoundary } from "@/components/common/InvoiceErrorBoundary";
 import { InvoiceMetricsSkeleton, InvoiceControlsSkeleton, InvoiceTableSkeleton } from "@/components/common/LoadingSkeleton";
@@ -279,7 +280,7 @@ export default function InvoicesPage() {
             <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Invoices</h1>
             <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Your most recent invoices list</p>
           </div>
-          <a
+          <Link
             href="/invoices/create"
             className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800"
           >
@@ -287,7 +288,7 @@ export default function InvoicesPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
             Add Invoice
-          </a>
+          </Link>
         </div>
       
       {/* Error State */}

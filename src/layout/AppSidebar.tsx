@@ -58,8 +58,12 @@ const navItems: NavItem[] = [
   },
   {
     icon: <ListIcon />,
-    name: "Invoices",
-    path: "/invoices",
+    name: "Order Management",
+    subItems: [
+      { name: "Orders", path: "/orders", pro: false },
+      { name: "Invoices", path: "/invoices", pro: false },
+      { name: "Transactions", path: "/transactions", pro: false },
+    ],
   },
   {
     icon: <UserCircleIcon />,
