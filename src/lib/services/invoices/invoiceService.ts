@@ -682,3 +682,6 @@ export class InvoiceService {
     }
   }
 }
+
+// Export singleton instance
+export const invoiceService = new InvoiceService();
