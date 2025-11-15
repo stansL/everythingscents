@@ -3,7 +3,6 @@
 import React, { useState } from "react";
 import {
   ReconciliationDashboard,
-  PaymentMethodSummary,
   MpesaTransactionMatcher,
   TransactionDataTable,
 } from "@/components/transactions";
@@ -31,9 +30,6 @@ const TransactionsPage: React.FC = () => {
 
       {/* Dashboard Overview */}
       <ReconciliationDashboard key={`dashboard-${refreshKey}`} />
-
-      {/* Payment Method Summary */}
-      <PaymentMethodSummary key={`payment-${refreshKey}`} />
 
       {/* M-Pesa Transaction Matcher */}
       <MpesaTransactionMatcher

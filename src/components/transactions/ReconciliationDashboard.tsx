@@ -58,8 +58,8 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
 
   return (
     <div className="space-y-6">
-      {/* Summary Cards Row 1 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Key Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Total Amount Card */}
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
           <div className="flex items-center justify-between">
@@ -98,25 +98,6 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
           </div>
         </div>
 
-        {/* Pending Reconciliation Card */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                Pending Reconciliation
-              </p>
-              <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400 mt-2">
-                {summary.pendingReconciliation}
-              </p>
-            </div>
-            <div className="p-3 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg">
-              <svg className="w-6 h-6 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-          </div>
-        </div>
-
         {/* Disputed Transactions Card */}
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
           <div className="flex items-center justify-between">
@@ -137,66 +118,71 @@ export const ReconciliationDashboard: React.FC<ReconciliationDashboardProps> = (
         </div>
       </div>
 
-      {/* Payment Method Breakdown */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-          Payment Method Breakdown
-        </h3>
-        <div className="space-y-4">
-          {Object.entries(summary.byPaymentMethod).map(([method, amount]) => {
-            const percentage = summary.totalAmount > 0 
-              ? ((amount / summary.totalAmount) * 100).toFixed(1)
-              : '0.0';
-            
-            return (
-              <div key={method} className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium text-gray-700 dark:text-gray-300">
-                    {getPaymentMethodLabel(method as PaymentMethod)}
-                  </span>
-                  <span className="text-gray-900 dark:text-white font-semibold">
-                    {formatAmountFromCents(amount)} ({percentage}%)
-                  </span>
+      {/* Payment Method Breakdown and Transaction Status Summary - Side by Side */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Payment Method Breakdown */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            Payment Method Breakdown
+          </h3>
+          <div className="space-y-4">
+            {Object.entries(summary.byPaymentMethod).map(([method, amount]) => {
+              const percentage = summary.totalAmount > 0 
+                ? ((amount / summary.totalAmount) * 100).toFixed(1)
+                : '0.0';
+              
+              return (
+                <div key={method} className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-medium text-gray-700 dark:text-gray-300">
+                      {getPaymentMethodLabel(method as PaymentMethod)}
+                    </span>
+                    <span className="text-gray-900 dark:text-white font-semibold">
+                      {formatAmountFromCents(amount)} ({percentage}%)
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                    <div
+                      className="bg-blue-600 dark:bg-blue-400 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${percentage}%` }}
+                    ></div>
+                  </div>
                 </div>
-                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                  <div
-                    className="bg-blue-600 dark:bg-blue-400 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${percentage}%` }}
-                  ></div>
-                </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
-      </div>
 
-      {/* Transaction Status Summary */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-          Transaction Status Summary
-        </h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {Object.entries(summary.byStatus).map(([status, count]) => {
-            const statusConfig: Record<string, { label: string; color: string; bgColor: string }> = {
-              pending: { label: 'Pending', color: 'text-yellow-600 dark:text-yellow-400', bgColor: 'bg-yellow-100 dark:bg-yellow-900/30' },
-              completed: { label: 'Completed', color: 'text-green-600 dark:text-green-400', bgColor: 'bg-green-100 dark:bg-green-900/30' },
-              failed: { label: 'Failed', color: 'text-red-600 dark:text-red-400', bgColor: 'bg-red-100 dark:bg-red-900/30' },
-              refunded: { label: 'Refunded', color: 'text-gray-600 dark:text-gray-400', bgColor: 'bg-gray-100 dark:bg-gray-900/30' },
-            };
-            
-            const config = statusConfig[status] || statusConfig.pending;
-            
-            return (
-              <div key={status} className={`${config.bgColor} rounded-lg p-4`}>
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
-                  {config.label}
-                </p>
-                <p className={`text-2xl font-bold ${config.color}`}>
-                  {count}
-                </p>
-              </div>
-            );
-          })}
+        {/* Transaction Status Summary */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            Transaction Status Summary
+          </h3>
+          <div className="grid grid-cols-2 gap-4">
+            {Object.entries(summary.byStatus).map(([status, count]) => {
+              const statusConfig: Record<string, { label: string; color: string; bgColor: string }> = {
+                pending: { label: 'Pending', color: 'text-yellow-600 dark:text-yellow-400', bgColor: 'bg-yellow-100 dark:bg-yellow-900/30' },
+                completed: { label: 'Completed', color: 'text-green-600 dark:text-green-400', bgColor: 'bg-green-100 dark:bg-green-900/30' },
+                failed: { label: 'Failed', color: 'text-red-600 dark:text-red-400', bgColor: 'bg-red-100 dark:bg-red-900/30' },
+                refunded: { label: 'Refunded', color: 'text-gray-600 dark:text-gray-400', bgColor: 'bg-gray-100 dark:bg-gray-900/30' },
+              };
+              
+              const config = statusConfig[status] || statusConfig.pending;
+              
+              return (
+                <div key={status} className={`${config.bgColor} rounded-lg p-4`}>
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                      {config.label}
+                    </p>
+                    <p className={`text-xl font-bold ${config.color}`}>
+                      {count}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>

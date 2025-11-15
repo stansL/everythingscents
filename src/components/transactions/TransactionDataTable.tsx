@@ -1,11 +1,13 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { ChevronUpIcon, ChevronDownIcon } from '@/icons';
 import { Transaction, TransactionStatus, TransactionFilters } from '@/lib/services/transactions/types';
-import { PaymentMethod } from '@/lib/services/invoices/types';
+import { PaymentMethod, Invoice } from '@/lib/services/invoices/types';
 import { formatAmountFromCents, formatDate } from '@/lib/utils/formatters';
 import { transactionService } from '@/lib/services/transactions/transactionService';
+import { InvoiceService } from '@/lib/services/invoices/invoiceService';
 
 export interface SortConfig {
   key: keyof Transaction;
@@ -21,11 +23,22 @@ export const TransactionDataTable: React.FC<TransactionDataTableProps> = React.m
   filters,
   onRowAction,
 }) => {
+  const router = useRouter();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'processedAt', direction: 'desc' });
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+  
+  // Reconciliation state
+  const [expandedTransactionId, setExpandedTransactionId] = useState<string | null>(null);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [filteredInvoices, setFilteredInvoices] = useState<Invoice[]>([]);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState('');
+  const [reconciling, setReconciling] = useState(false);
+  const [reconcileError, setReconcileError] = useState<string | null>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Fetch transactions
   useEffect(() => {
@@ -43,6 +56,35 @@ export const TransactionDataTable: React.FC<TransactionDataTableProps> = React.m
 
     fetchTransactions();
   }, [filters]);
+
+  // Fetch invoices for reconciliation
+  useEffect(() => {
+    const fetchInvoices = async () => {
+      try {
+        const response = await InvoiceService.getAllInvoices();
+        if (response.success && response.data) {
+          const unpaidInvoices = response.data.filter(
+            inv => inv.status === 'unpaid' || inv.status === 'partially_paid'
+          );
+          setInvoices(unpaidInvoices);
+        }
+      } catch (err) {
+        console.error('Failed to fetch invoices:', err);
+      }
+    };
+    fetchInvoices();
+  }, []);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Sort transactions
   const sortedTransactions = React.useMemo(() => {
@@ -76,6 +118,107 @@ export const TransactionDataTable: React.FC<TransactionDataTableProps> = React.m
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
+  };
+
+  const handleReconcileClick = (transaction: Transaction) => {
+    if (expandedTransactionId === transaction.id) {
+      setExpandedTransactionId(null);
+      setSelectedInvoiceId('');
+      setReconcileError(null);
+    } else {
+      setExpandedTransactionId(transaction.id);
+      setSelectedInvoiceId(transaction.invoiceId || '');
+      setReconcileError(null);
+      filterInvoicesByAmount(transaction.amount);
+    }
+  };
+
+  const filterInvoicesByAmount = (transactionAmount: number) => {
+    const sorted = [...invoices].sort((a, b) => {
+      const diffA = Math.abs(a.amount - transactionAmount);
+      const diffB = Math.abs(b.amount - transactionAmount);
+      return diffA - diffB;
+    });
+    setFilteredInvoices(sorted.slice(0, 10));
+  };
+
+  const handleInvoiceSearch = (value: string) => {
+    setSelectedInvoiceId(value);
+    
+    if (!value.trim()) {
+      const expandedTransaction = transactions.find(t => t.id === expandedTransactionId);
+      if (expandedTransaction) {
+        filterInvoicesByAmount(expandedTransaction.amount);
+      } else {
+        setFilteredInvoices(invoices.slice(0, 10));
+      }
+      setShowDropdown(true);
+      return;
+    }
+
+    const searchLower = value.toLowerCase();
+    const filtered = invoices.filter(inv => 
+      inv.id.toLowerCase().includes(searchLower) ||
+      inv.clientName.toLowerCase().includes(searchLower) ||
+      inv.clientEmail?.toLowerCase().includes(searchLower)
+    );
+
+    const expandedTransaction = transactions.find(t => t.id === expandedTransactionId);
+    if (expandedTransaction) {
+      filtered.sort((a, b) => {
+        const diffA = Math.abs(a.amount - expandedTransaction.amount);
+        const diffB = Math.abs(b.amount - expandedTransaction.amount);
+        return diffA - diffB;
+      });
+    }
+
+    setFilteredInvoices(filtered.slice(0, 10));
+    setShowDropdown(true);
+  };
+
+  const handleSelectInvoice = (invoice: Invoice) => {
+    setSelectedInvoiceId(invoice.id);
+    setShowDropdown(false);
+  };
+
+  const handleReconcileSubmit = async () => {
+    if (!expandedTransactionId || !selectedInvoiceId.trim()) {
+      setReconcileError('Please select an invoice');
+      return;
+    }
+
+    setReconciling(true);
+    setReconcileError(null);
+
+    try {
+      await transactionService.matchTransaction(expandedTransactionId, selectedInvoiceId);
+      
+      const data = await transactionService.getTransactions(filters);
+      setTransactions(data);
+      
+      setExpandedTransactionId(null);
+      setSelectedInvoiceId('');
+      
+      const transaction = transactions.find(t => t.id === expandedTransactionId);
+      if (transaction) {
+        onRowAction?.('reconcile', transaction);
+      }
+    } catch (err) {
+      setReconcileError(err instanceof Error ? err.message : 'Failed to reconcile transaction');
+    } finally {
+      setReconciling(false);
+    }
+  };
+
+  const handleMarkDisputed = async (transactionId: string) => {
+    try {
+      await transactionService.updateReconciliationStatus(transactionId, 'disputed');
+      const data = await transactionService.getTransactions(filters);
+      setTransactions(data);
+      setExpandedTransactionId(null);
+    } catch (err) {
+      setReconcileError('Failed to mark as disputed');
+    }
   };
 
   const getSortIcon = (key: SortConfig['key']) => {
@@ -274,9 +417,13 @@ export const TransactionDataTable: React.FC<TransactionDataTableProps> = React.m
 
           <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
             {paginatedTransactions.map((transaction) => (
+              <React.Fragment key={transaction.id}>
               <tr 
-                key={transaction.id} 
-                className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                className={`transition-colors ${
+                  expandedTransactionId === transaction.id
+                    ? 'bg-blue-50 dark:bg-blue-900/20'
+                    : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                }`}
               >
                 {/* Transaction ID */}
                 <td className="px-4 py-4">
@@ -288,11 +435,11 @@ export const TransactionDataTable: React.FC<TransactionDataTableProps> = React.m
                 {/* Invoice ID */}
                 <td className="px-4 py-4">
                   <button
-                    onClick={() => onRowAction?.('view', transaction)}
+                    onClick={() => router.push(`/invoices/${transaction.invoiceId}`)}
                     className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 
-                             dark:hover:text-blue-300 hover:underline"
+                             dark:hover:text-blue-300 hover:underline font-medium"
                   >
-                    {transaction.invoiceId}
+                    #{transaction.invoiceId}
                   </button>
                 </td>
 
@@ -337,14 +484,126 @@ export const TransactionDataTable: React.FC<TransactionDataTableProps> = React.m
                 {/* Actions */}
                 <td className="px-4 py-4 text-right">
                   <button
-                    onClick={() => onRowAction?.('reconcile', transaction)}
-                    className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 
-                             dark:hover:text-blue-300 font-medium"
+                    onClick={() => handleReconcileClick(transaction)}
+                    disabled={transaction.reconciliationStatus === 'matched'}
+                    className={`text-sm font-medium transition-colors ${
+                      transaction.reconciliationStatus === 'matched'
+                        ? 'text-gray-400 dark:text-gray-600 cursor-not-allowed'
+                        : 'text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300'
+                    }`}
                   >
-                    Reconcile
+                    {expandedTransactionId === transaction.id ? 'Cancel' : 'Reconcile'}
                   </button>
                 </td>
               </tr>
+
+              {/* Inline Reconciliation Form */}
+              {expandedTransactionId === transaction.id && (
+                <tr>
+                  <td colSpan={9} className="px-0 py-0">
+                    <div className="bg-gray-50 dark:bg-gray-900/50 px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+                      {reconcileError && (
+                        <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg">
+                          <p className="text-sm text-red-800 dark:text-red-200">{reconcileError}</p>
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">Amount:</span>
+                          <span className="font-semibold text-gray-900 dark:text-white whitespace-nowrap">
+                            {formatAmountFromCents(transaction.amount)}
+                          </span>
+                        </div>
+
+                        <div className="flex-1 relative" ref={dropdownRef}>
+                          <input
+                            type="text"
+                            value={selectedInvoiceId}
+                            onChange={(e) => handleInvoiceSearch(e.target.value)}
+                            onFocus={() => {
+                              filterInvoicesByAmount(transaction.amount);
+                              setShowDropdown(true);
+                            }}
+                            placeholder="Search by invoice ID or customer name"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent text-sm"
+                            autoComplete="off"
+                          />
+
+                          {showDropdown && filteredInvoices.length > 0 && (
+                            <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                              {filteredInvoices.map((invoice) => {
+                                const amountDiff = Math.abs(invoice.amount - transaction.amount);
+                                const isExactMatch = amountDiff === 0;
+                                const isCloseMatch = amountDiff < transaction.amount * 0.1;
+
+                                return (
+                                  <button
+                                    key={invoice.id}
+                                    onClick={() => handleSelectInvoice(invoice)}
+                                    className="w-full px-3 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 border-b border-gray-200 dark:border-gray-700 last:border-b-0 transition-colors"
+                                  >
+                                    <div className="flex items-start justify-between gap-2">
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 mb-1">
+                                          <span className="text-sm font-medium text-gray-900 dark:text-white">
+                                            #{invoice.id}
+                                          </span>
+                                          {isExactMatch && (
+                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300">
+                                              Exact match
+                                            </span>
+                                          )}
+                                          {!isExactMatch && isCloseMatch && (
+                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300">
+                                              Close match
+                                            </span>
+                                          )}
+                                        </div>
+                                        <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
+                                          {invoice.clientName}
+                                        </p>
+                                      </div>
+                                      <div className="text-right">
+                                        <p className="text-sm font-semibold text-gray-900 dark:text-white whitespace-nowrap">
+                                          {formatAmountFromCents(invoice.amount)}
+                                        </p>
+                                        {!isExactMatch && (
+                                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                                            Δ {formatAmountFromCents(amountDiff)}
+                                          </p>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+
+                        <button
+                          onClick={handleReconcileSubmit}
+                          disabled={reconciling || !selectedInvoiceId.trim()}
+                          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap text-sm"
+                        >
+                          {reconciling ? 'Reconciling...' : 'Reconcile'}
+                        </button>
+
+                        {transaction.reconciliationStatus === 'pending' && (
+                          <button
+                            onClick={() => handleMarkDisputed(transaction.id)}
+                            className="px-4 py-2 text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors whitespace-nowrap text-sm font-medium"
+                          >
+                            Mark Disputed
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              )}
+              </React.Fragment>
             ))}
           </tbody>
         </table>
