@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Product } from '@/lib/services/products/types';
 import { BulkInventoryOperations } from './BulkInventoryOperations';
 import { Modal } from '@/components/ui/modal';
+import { QuickScanWidget, QuickStockMovement } from '@/components/barcode';
 
 interface InventoryDashboardProps {
   className?: string;
@@ -33,6 +34,7 @@ export const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showBulkOperations, setShowBulkOperations] = useState(false);
+  const [showQuickStockMovement, setShowQuickStockMovement] = useState(false);
 
   useEffect(() => {
     loadDashboardData();
@@ -87,6 +89,43 @@ export const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
       case 'low_stock': return 'Low Stock';
       default: return 'Unknown';
     }
+  };
+
+  const handleProductScanned = (product: {
+    id: string;
+    name: string;
+    sku: string;
+    barcode: string;
+    category: string;
+    currentStock: number;
+    reorderPoint: number;
+    unitCost: number;
+    sellingPrice: number;
+  } | undefined) => {
+    // When a product is found, open the quick stock movement modal
+    if (product) {
+      console.log('Product scanned:', product);
+      setShowQuickStockMovement(true);
+    }
+  };
+
+  const handleProductNotFound = (error: string) => {
+    // Handle when product is not found or scan error
+    console.log('Product scan error:', error);
+  };
+
+  const handleTransactionComplete = (transaction: {
+    productId: string;
+    type: string;
+    quantity: number;
+    unitPrice: number;
+    totalValue: number;
+    reason: string;
+    date: Date;
+  }) => {
+    // Refresh dashboard data after transaction
+    console.log('Transaction completed:', transaction);
+    loadDashboardData();
   };
 
   if (loading) {
@@ -188,6 +227,57 @@ export const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Quick Scan Widget */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <QuickScanWidget 
+          onProductFound={handleProductScanned}
+          onProductNotFound={handleProductNotFound}
+          className="lg:col-span-1"
+        />
+        
+        {/* Quick Actions Grid */}
+        <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Quick Actions</h3>
+              <div className="text-xl">⚡</div>
+            </div>
+            <div className="space-y-2">
+              <button
+                onClick={() => setShowQuickStockMovement(true)}
+                className="w-full text-left p-2 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded"
+              >
+                📱 Quick Stock Movement
+              </button>
+              <button
+                onClick={() => setShowBulkOperations(true)}
+                className="w-full text-left p-2 text-sm text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded"
+              >
+                📄 Bulk Operations
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Recent Activity</h3>
+              <div className="text-xl">📊</div>
+            </div>
+            <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats.recentTransactions}</div>
+            <p className="text-xs text-gray-500 dark:text-gray-400">transactions today</p>
+          </div>
+
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white">System Status</h3>
+              <div className="text-xl">✅</div>
+            </div>
+            <div className="text-sm text-green-600 dark:text-green-400 font-medium">All Systems Operational</div>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Last updated: now</p>
           </div>
         </div>
       </div>
@@ -367,6 +457,13 @@ export const InventoryDashboard: React.FC<InventoryDashboardProps> = ({
           <BulkInventoryOperations showHeader={false} />
         </div>
       </Modal>
+
+      {/* Quick Stock Movement Modal */}
+      <QuickStockMovement
+        isOpen={showQuickStockMovement}
+        onClose={() => setShowQuickStockMovement(false)}
+        onTransactionComplete={handleTransactionComplete}
+      />
     </div>
   );
 };

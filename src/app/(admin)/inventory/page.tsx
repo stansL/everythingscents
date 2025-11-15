@@ -20,8 +20,8 @@ const InventoryPage: React.FC = () => {
   const handleTransactionSuccess = () => {
     // Refresh the dashboard when a transaction is completed
     setRefreshKey(prev => prev + 1);
-    replenishmentModal.close();
-    adjustmentModal.close();
+    replenishmentModal.closeModal();
+    adjustmentModal.closeModal();
   };
 
   return (
@@ -29,13 +29,7 @@ const InventoryPage: React.FC = () => {
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
-          <PageBreadCrumb 
-            pageName="Inventory Dashboard" 
-            items={[
-              { name: "Admin", path: "/" },
-              { name: "Inventory Management", path: "/inventory" }
-            ]} 
-          />
+          <PageBreadCrumb pageTitle="Inventory Dashboard" />
           <p className="text-gray-600 dark:text-gray-400 mt-2">
             Monitor stock levels, track inventory movements, and manage your warehouse operations.
           </p>
@@ -43,7 +37,7 @@ const InventoryPage: React.FC = () => {
         
         <div className="flex items-center gap-3">
           <button
-            onClick={adjustmentModal.open}
+            onClick={adjustmentModal.openModal}
             className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors flex items-center gap-2"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -52,7 +46,7 @@ const InventoryPage: React.FC = () => {
             Stock Adjustment
           </button>
           <button
-            onClick={replenishmentModal.open}
+            onClick={replenishmentModal.openModal}
             className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

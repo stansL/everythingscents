@@ -16,8 +16,8 @@ const StockTransactionsPage: React.FC = () => {
   const handleTransactionSuccess = () => {
     // Refresh the transaction history when a transaction is completed
     setRefreshKey(prev => prev + 1);
-    replenishmentModal.close();
-    adjustmentModal.close();
+    replenishmentModal.closeModal();
+    adjustmentModal.closeModal();
   };
 
   const transactionTypes = [
@@ -34,14 +34,7 @@ const StockTransactionsPage: React.FC = () => {
       {/* Page Header */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
-          <PageBreadCrumb 
-            pageName="Stock Transactions" 
-            items={[
-              { name: "Admin", path: "/" },
-              { name: "Inventory Management", path: "/inventory" },
-              { name: "Stock Transactions", path: "/inventory/transactions" }
-            ]} 
-          />
+          <PageBreadCrumb pageTitle="Stock Transactions" />
           <p className="text-gray-600 dark:text-gray-400 mt-2">
             Track all inventory movements and manage stock adjustments.
           </p>
@@ -49,7 +42,7 @@ const StockTransactionsPage: React.FC = () => {
         
         <div className="flex items-center gap-3">
           <button
-            onClick={adjustmentModal.open}
+            onClick={adjustmentModal.openModal}
             className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors flex items-center gap-2"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -58,7 +51,7 @@ const StockTransactionsPage: React.FC = () => {
             Stock Adjustment
           </button>
           <button
-            onClick={replenishmentModal.open}
+            onClick={replenishmentModal.openModal}
             className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -168,7 +161,7 @@ const StockTransactionsPage: React.FC = () => {
           <div className="bg-white dark:bg-gray-900 rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <StockReplenishmentForm
               onSuccess={handleTransactionSuccess}
-              onCancel={replenishmentModal.close}
+              onCancel={replenishmentModal.closeModal}
             />
           </div>
         </div>
@@ -180,7 +173,7 @@ const StockTransactionsPage: React.FC = () => {
           <div className="bg-white dark:bg-gray-900 rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <InventoryAdjustmentForm
               onSuccess={handleTransactionSuccess}
-              onCancel={adjustmentModal.close}
+              onCancel={adjustmentModal.closeModal}
             />
           </div>
         </div>

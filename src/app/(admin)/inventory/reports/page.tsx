@@ -90,14 +90,7 @@ const InventoryReportsPage: React.FC = () => {
     <div className="space-y-6">
       {/* Page Header */}
       <div>
-        <PageBreadCrumb 
-          pageName="Inventory Reports" 
-          items={[
-            { name: "Admin", path: "/" },
-            { name: "Inventory Management", path: "/inventory" },
-            { name: "Reports", path: "/inventory/reports" }
-          ]} 
-        />
+        <PageBreadCrumb pageTitle="Inventory Reports" />
         <p className="text-gray-600 dark:text-gray-400 mt-2">
           Generate comprehensive reports to analyze your inventory performance and make data-driven decisions.
         </p>

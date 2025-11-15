@@ -7,7 +7,7 @@ import {
   where 
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
-import { inventoryService } from './inventoryService';
+
 
 // Types for products and transactions
 interface Product {
@@ -290,24 +290,24 @@ class InventoryValuationService {
    */
   private async calculateProductValuation(product: Product, transactions: InventoryTransaction[]): Promise<InventoryValuationItem | null> {
     try {
-      // Get current inventory levels
-      const inventory = await inventoryService.getProductInventory(product.id);
+      // Get current inventory levels from product data
+      const currentStock = Number(product.totalUnits) || Number(product.stock) || 0;
       
-      if (!inventory || inventory.currentStock <= 0) {
+      if (currentStock <= 0) {
         return null;
       }
 
-      // Calculate WAC from inventory service
-      const wac = inventory.weightedAverageCost || 0;
+      // Calculate WAC from product data
+      const wac = Number(product.weightedAverageCost) || 0;
       
       // Calculate sales and profit from sale transactions
       const saleTransactions = transactions.filter(t => t.type === 'sale');
-      const totalSales = saleTransactions.reduce((sum, t) => sum + (t.unitPrice * t.quantity), 0);
-      const totalCost = saleTransactions.reduce((sum, t) => sum + (wac * t.quantity), 0);
+      const totalSales = saleTransactions.reduce((sum, t) => sum + (Number(t.unitCost || 0) * Number(t.quantity)), 0);
+      const totalCost = saleTransactions.reduce((sum, t) => sum + (wac * Number(t.quantity)), 0);
       const totalProfit = totalSales - totalCost;
       
       // Calculate turnover ratio (sales / average inventory value)
-      const averageInventoryValue = inventory.currentStock * wac;
+      const averageInventoryValue = currentStock * wac;
       const turnoverRatio = averageInventoryValue > 0 ? totalSales / averageInventoryValue : 0;
       
       // Calculate days in inventory
@@ -316,9 +316,13 @@ class InventoryValuationService {
       // Get last purchase price for variance calculation
       const purchaseTransactions = transactions
         .filter(t => t.type === 'purchase')
-        .sort((a, b) => b.transactionDate.seconds - a.transactionDate.seconds);
+        .sort((a, b) => {
+          const aSeconds = (a.createdAt as Timestamp)?.seconds || 0;
+          const bSeconds = (b.createdAt as Timestamp)?.seconds || 0;
+          return bSeconds - aSeconds;
+        });
       
-      const lastPurchasePrice = purchaseTransactions.length > 0 ? purchaseTransactions[0].unitPrice : wac;
+      const lastPurchasePrice = Number(purchaseTransactions.length > 0 ? (purchaseTransactions[0].unitCost || 0) : wac);
       const priceVariance = wac - lastPurchasePrice;
       const variancePercentage = lastPurchasePrice > 0 ? (priceVariance / lastPurchasePrice) * 100 : 0;
       
@@ -326,12 +330,12 @@ class InventoryValuationService {
       const profitMargin = totalSales > 0 ? (totalProfit / totalSales) * 100 : 0;
 
       return {
-        productId: product.id,
+        productId: product.id || '',
         productName: product.name,
-        category: product.category || 'Uncategorized',
-        currentStock: inventory.currentStock,
+        category: String(product.categoryId) || 'Uncategorized',
+        currentStock: currentStock,
         weightedAverageCost: wac,
-        totalValue: inventory.currentStock * wac,
+        totalValue: currentStock * wac,
         lastPurchasePrice,
         priceVariance,
         variancePercentage,

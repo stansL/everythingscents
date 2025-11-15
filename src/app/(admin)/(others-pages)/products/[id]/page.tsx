@@ -3,6 +3,8 @@ import React, { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import { ProductService, Product, ProductStatus } from "@/lib";
+import { ProductDeleteModal } from "@/components/products";
+import { useModal } from "@/hooks/useModal";
 
 export default function ViewEditProductPage() {
   const router = useRouter();
@@ -15,6 +17,7 @@ export default function ViewEditProductPage() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [formData, setFormData] = useState<Partial<Product>>({});
   const [isSaving, setIsSaving] = useState(false);
+  const { isOpen: isDeleteModalOpen, openModal: openDeleteModal, closeModal: closeDeleteModal } = useModal();
 
   useEffect(() => {
     loadProduct();
@@ -69,26 +72,14 @@ export default function ViewEditProductPage() {
     }
   };
 
-  const handleDeleteProduct = async () => {
+  const handleDeleteProduct = () => {
     if (!product || !product.id) return;
-    
-    const confirmed = window.confirm(
-      `Are you sure you want to delete "${product.name}"? This action cannot be undone.`
-    );
-    
-    if (confirmed) {
-      try {
-        const response = await ProductService.deleteProduct(product.id);
-        if (response.success) {
-          router.push('/products?message=Product deleted successfully');
-        } else {
-          setError(response.error || "Failed to delete product");
-        }
-      } catch (err) {
-        setError("An error occurred while deleting the product");
-        console.error("Error deleting product:", err);
-      }
-    }
+    openDeleteModal();
+  };
+
+  const handleDeleteSuccess = () => {
+    closeDeleteModal();
+    router.push('/products?message=Product deleted successfully');
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -836,6 +827,16 @@ export default function ViewEditProductPage() {
           </form>
         </div>
       </div>
+
+      {/* Delete Product Modal */}
+      {product && (
+        <ProductDeleteModal
+          isOpen={isDeleteModalOpen}
+          onClose={closeDeleteModal}
+          product={product}
+          onProductUpdate={handleDeleteSuccess}
+        />
+      )}
     </div>
   );
 }

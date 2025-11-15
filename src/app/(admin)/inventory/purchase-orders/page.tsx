@@ -9,14 +9,7 @@ const PurchaseOrdersPage: React.FC = () => {
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
-          <PageBreadCrumb 
-            pageName="Purchase Orders" 
-            items={[
-              { name: "Admin", path: "/" },
-              { name: "Inventory Management", path: "/inventory" },
-              { name: "Purchase Orders", path: "/inventory/purchase-orders" }
-            ]} 
-          />
+          <PageBreadCrumb pageTitle="Purchase Orders" />
           <p className="text-gray-600 dark:text-gray-400 mt-2">
             Create, manage, and track purchase orders with suppliers.
           </p>

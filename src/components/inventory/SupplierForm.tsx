@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { SupplierService } from '@/lib/services/inventory/supplierService';
-import { Supplier, SupplierInput } from '@/lib/services/products/types';
+import { Supplier, SupplierInput, SupplierCreateInput } from '@/lib/services/products/types';
 
 interface SupplierFormProps {
   supplier?: Supplier;
@@ -44,16 +44,19 @@ export const SupplierForm: React.FC<SupplierFormProps> = ({
     
     if (name.includes('.')) {
       const [section, field, subField] = name.split('.');
-      setFormData((prev: SupplierInput) => ({
-        ...prev,
-        [section]: {
-          ...prev[section as keyof typeof prev],
-          [field]: subField ? {
-            ...(prev[section as keyof typeof prev] as any)[field],
-            [subField]: value
-          } : value
-        }
-      }));
+      setFormData((prev: SupplierInput) => {
+        const currentSection = prev[section as keyof SupplierInput] as Record<string, unknown>;
+        return {
+          ...prev,
+          [section]: {
+            ...(currentSection || {}),
+            [field]: subField ? {
+              ...((currentSection && currentSection[field]) || {}),
+              [subField]: value
+            } : value
+          }
+        };
+      });
     } else {
       setFormData((prev: SupplierInput) => ({
         ...prev,
@@ -72,7 +75,12 @@ export const SupplierForm: React.FC<SupplierFormProps> = ({
       if (mode === 'edit' && supplier?.id) {
         response = await SupplierService.updateSupplier(supplier.id, formData);
       } else {
-        response = await SupplierService.createSupplier(formData);
+        // Add required isActive field for creation
+        const createData: SupplierCreateInput = {
+          ...formData,
+          isActive: true
+        };
+        response = await SupplierService.createSupplier(createData);
       }
 
       if (response.success) {
@@ -196,7 +204,7 @@ export const SupplierForm: React.FC<SupplierFormProps> = ({
               <input
                 type="text"
                 name="contactInfo.address.street"
-                value={formData.contactInfo.address.street}
+                value={formData.contactInfo.address?.street || ''}
                 onChange={handleInputChange}
                 className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="123 Main Street"
@@ -211,7 +219,7 @@ export const SupplierForm: React.FC<SupplierFormProps> = ({
                 <input
                   type="text"
                   name="contactInfo.address.city"
-                  value={formData.contactInfo.address.city}
+                  value={formData.contactInfo.address?.city || ''}
                   onChange={handleInputChange}
                   className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="City"
@@ -225,7 +233,7 @@ export const SupplierForm: React.FC<SupplierFormProps> = ({
                 <input
                   type="text"
                   name="contactInfo.address.state"
-                  value={formData.contactInfo.address.state}
+                  value={formData.contactInfo.address?.state || ''}
                   onChange={handleInputChange}
                   className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="State"
@@ -239,7 +247,7 @@ export const SupplierForm: React.FC<SupplierFormProps> = ({
                 <input
                   type="text"
                   name="contactInfo.address.zipCode"
-                  value={formData.contactInfo.address.zipCode}
+                  value={formData.contactInfo.address?.zipCode || ''}
                   onChange={handleInputChange}
                   className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="12345"
@@ -253,7 +261,7 @@ export const SupplierForm: React.FC<SupplierFormProps> = ({
                 <input
                   type="text"
                   name="contactInfo.address.country"
-                  value={formData.contactInfo.address.country}
+                  value={formData.contactInfo.address?.country || ''}
                   onChange={handleInputChange}
                   className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Country"

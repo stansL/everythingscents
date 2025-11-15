@@ -52,7 +52,7 @@ export const StockReplenishmentForm: React.FC<StockReplenishmentFormProps> = ({
 
   const loadProducts = async () => {
     try {
-      const response = await ProductService.getAllProducts();
+      const response = await ProductService.getProducts();
       if (response.success && response.data) {
         setProducts(response.data);
       }

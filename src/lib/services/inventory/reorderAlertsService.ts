@@ -11,7 +11,7 @@ import {
   Timestamp 
 } from 'firebase/firestore';
 import { db } from '../../firebase/config';
-import { Product, Supplier } from '../products/types';
+import { Product, Supplier, InventoryTransaction } from '../products/types';
 import { InventoryResponse, LowStockAlert } from './types';
 
 export interface ReorderAlert extends LowStockAlert {
@@ -50,6 +50,7 @@ export interface StockAnalytics {
   daysOfStockRemaining: number;
   seasonalTrend: 'increasing' | 'decreasing' | 'stable';
   reorderFrequency: number; // days between reorders
+  averageLeadTime: number; // average lead time in days
   lastOrderDate?: Date;
   predictedStockoutDate?: Date;
 }
@@ -73,7 +74,7 @@ export class ReorderAlertsService {
       for (const productDoc of productsSnapshot.docs) {
         const product = productDoc.data() as Product;
         
-        if (!product.isActive) continue;
+        if (!product.isActive || !product.id) continue;
 
         const currentStock = product.totalUnits || product.stock || 0;
         const reorderPoint = product.reorderPoint || 0;
@@ -162,7 +163,7 @@ export class ReorderAlertsService {
         const currentStock = product.totalUnits || product.stock || 0;
         const reorderPoint = product.reorderPoint || 0;
         
-        if (currentStock <= reorderPoint * 1.2) { // Include products approaching reorder point
+        if (currentStock <= reorderPoint * 1.2 && product.id) { // Include products approaching reorder point
           const analytics = await this.getStockAnalytics(product.id);
           const recommendation = await this.createReorderRecommendation(product, analytics);
           recommendations.push(recommendation);
@@ -266,28 +267,33 @@ export class ReorderAlertsService {
       );
 
       const transactionsSnapshot = await getDocs(transactionsQuery);
-      const transactions = transactionsSnapshot.docs.map(doc => ({
-        ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate() || new Date()
-      }));
+      const transactions = transactionsSnapshot.docs.map(doc => {
+        const data = doc.data() as InventoryTransaction;
+        return {
+          ...data,
+          createdAt: data.createdAt?.toDate?.() || new Date()
+        };
+      });
 
       // Calculate analytics
       const now = new Date();
       const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
       const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
 
-      const recentTransactions = transactions.filter(t => t.createdAt >= thirtyDaysAgo);
+      const recentTransactions = transactions.filter(t => 
+        t.createdAt && t.createdAt >= thirtyDaysAgo
+      );
       const salesTransactions = recentTransactions.filter(t => t.type === 'sale');
       
       const totalSold = salesTransactions.reduce((sum, t) => sum + Math.abs(t.quantity), 0);
       const averageDailyUsage = totalSold / 30;
 
       const purchaseTransactions = transactions.filter(t => 
-        t.type === 'purchase' && t.createdAt >= ninetyDaysAgo
+        t.type === 'purchase' && t.createdAt && t.createdAt >= ninetyDaysAgo
       );
 
       const lastOrderDate = purchaseTransactions.length > 0 
-        ? new Date(Math.max(...purchaseTransactions.map(t => t.createdAt.getTime())))
+        ? new Date(Math.max(...purchaseTransactions.map(t => (t.createdAt as Date).getTime())))
         : undefined;
 
       // Calculate average lead time (simplified)
@@ -307,6 +313,7 @@ export class ReorderAlertsService {
         daysOfStockRemaining,
         seasonalTrend: 'stable', // Would need more complex analysis
         reorderFrequency: 30, // Simplified
+        averageLeadTime,
         lastOrderDate,
         predictedStockoutDate
       };
@@ -441,7 +448,7 @@ export class ReorderAlertsService {
     const estimatedCost = recommendedQuantity * (product.weightedAverageCost || product.costPrice || 0);
 
     return {
-      productId: product.id,
+      productId: product.id || '',
       productName: product.name,
       currentStock,
       reorderPoint,

@@ -55,21 +55,6 @@ export const ReorderAlertsDashboard: React.FC<ReorderAlertsDashboardProps> = ({
     return () => clearInterval(interval);
   }, []);
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'critical':
-        return 'text-red-600 dark:text-red-400';
-      case 'high':
-        return 'text-orange-600 dark:text-orange-400';
-      case 'medium':
-        return 'text-yellow-600 dark:text-yellow-400';
-      case 'low':
-        return 'text-blue-600 dark:text-blue-400';
-      default:
-        return 'text-gray-600 dark:text-gray-400';
-    }
-  };
-
   const getPriorityIcon = (priority: string) => {
     const baseClasses = "w-3 h-3";
     switch (priority) {

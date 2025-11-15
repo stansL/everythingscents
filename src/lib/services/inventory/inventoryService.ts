@@ -356,7 +356,7 @@ export class InventoryService {
       
       let newStock = currentStock;
       let transactionQuantity = adjustment.quantity;
-      let transactionType: 'adjustment' = 'adjustment';
+      const transactionType = 'adjustment' as const;
 
       // Calculate new stock based on adjustment type
       if (adjustment.adjustmentType === 'increase') {
@@ -424,7 +424,7 @@ export class InventoryService {
     endDate?: Date;
   } = {}): Promise<InventoryResponse<InventoryTransaction[]>> {
     try {
-      let query = collection(db, this.COLLECTIONS.INVENTORY_TRANSACTIONS);
+      const query = collection(db, this.COLLECTIONS.INVENTORY_TRANSACTIONS);
       const transactions: InventoryTransaction[] = [];
       
       const querySnapshot = await getDocs(query);
@@ -447,21 +447,29 @@ export class InventoryService {
           return;
         }
         
-        if (options.startDate && transaction.createdAt < options.startDate) {
-          return;
+        if (options.startDate && transaction.createdAt) {
+          const transactionDate = transaction.createdAt.toDate();
+          if (transactionDate < options.startDate) {
+            return;
+          }
         }
         
-        if (options.endDate && transaction.createdAt > options.endDate) {
-          return;
+        if (options.endDate && transaction.createdAt) {
+          const transactionDate = transaction.createdAt.toDate();
+          if (transactionDate > options.endDate) {
+            return;
+          }
         }
         
         transactions.push(transaction);
       });
 
       // Sort by date (newest first)
-      transactions.sort((a, b) => 
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
+      transactions.sort((a, b) => {
+        const dateA = a.createdAt ? a.createdAt.toDate() : new Date(0);
+        const dateB = b.createdAt ? b.createdAt.toDate() : new Date(0);
+        return dateB.getTime() - dateA.getTime();
+      });
 
       // Apply limit
       const limitedTransactions = options.limit ? 
@@ -483,7 +491,7 @@ export class InventoryService {
       );
 
       // Add product names and calculate running totals
-      let runningStock: { [productId: string]: number } = {};
+      const runningStock: { [productId: string]: number } = {};
       
       limitedTransactions.forEach((transaction) => {
         transaction.productName = productMap[transaction.productId];
@@ -503,6 +511,80 @@ export class InventoryService {
 
     } catch (error) {
       console.error('Error getting transaction history:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error occurred'
+      };
+    }
+  }
+
+  /**
+   * Add a transaction directly (for barcode scanning and quick movements)
+   */
+  static async addTransaction(transactionData: {
+    productId: string;
+    type: 'sale' | 'purchase' | 'adjustment' | 'transfer';
+    quantity: number;
+    unitPrice: number;
+    totalValue: number;
+    reason?: string;
+    notes?: string;
+  }): Promise<{ success: boolean; transaction?: InventoryTransaction; error?: string }> {
+    try {
+      // Handle the transaction based on type
+      if (transactionData.type === 'purchase') {
+        // Use replenishInventory for purchases
+        const result = await this.replenishInventory({
+          productId: transactionData.productId,
+          quantity: Math.abs(transactionData.quantity),
+          unitCost: transactionData.unitPrice,
+          supplierId: 'barcode-quick-purchase',
+          invoiceReference: 'Quick Purchase',
+          notes: transactionData.reason || transactionData.notes || 'Quick purchase via barcode scan'
+        });
+        return {
+          success: result.success,
+          transaction: result.transaction,
+          error: result.error
+        };
+      } else if (transactionData.type === 'sale') {
+        // Use reduceStock for sales
+        const result = await this.reduceStock(
+          transactionData.productId,
+          Math.abs(transactionData.quantity),
+          'sale',
+          'barcode-quick-sale',
+          transactionData.reason || transactionData.notes || 'Quick sale via barcode scan'
+        );
+        return {
+          success: result.success,
+          transaction: result.transaction,
+          error: result.error
+        };
+      } else if (transactionData.type === 'adjustment') {
+        // Use adjustInventory for adjustments
+        const adjustmentType = transactionData.quantity > 0 ? 'increase' : 'decrease';
+        const result = await this.adjustInventory({
+          productId: transactionData.productId,
+          adjustmentType: adjustmentType,
+          quantity: Math.abs(transactionData.quantity),
+          reason: transactionData.reason || 'Quick adjustment via barcode scan',
+          unitCost: transactionData.unitPrice,
+          notes: transactionData.notes || 'Barcode scan adjustment'
+        });
+        return {
+          success: result.success,
+          transaction: result.transaction,
+          error: result.error
+        };
+      } else {
+        return {
+          success: false,
+          error: 'Unsupported transaction type'
+        };
+      }
+    } catch (error) {
+      console.error('Error adding transaction:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error occurred'
