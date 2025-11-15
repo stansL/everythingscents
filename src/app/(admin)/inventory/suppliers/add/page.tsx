@@ -85,20 +85,19 @@ export default function AddSupplierPage() {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <PageBreadCrumb pageTitle="Add Supplier" />
-          <p className="text-gray-600 dark:text-gray-400 mt-2">
+      <div>
+        <PageBreadCrumb pageTitle="Add Supplier" />
+        <div className="flex items-center justify-between mt-2">
+          <p className="text-gray-600 dark:text-gray-400">
             Create a new supplier profile for inventory management
           </p>
+          <Link 
+            href="/inventory/suppliers"
+            className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+          >
+            Back to Suppliers
+          </Link>
         </div>
-        
-        <Link 
-          href="/inventory/suppliers"
-          className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-        >
-          Back to Suppliers
-        </Link>
       </div>
 
       {error && (

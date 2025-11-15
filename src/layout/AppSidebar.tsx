@@ -58,8 +58,8 @@ const navItems: NavItem[] = [
   },
   {
     icon: <ListIcon />,
-    name: "Manage Orders",
-    path: "/manage-orders",
+    name: "Invoices",
+    path: "/invoices",
   },
   {
     icon: <UserCircleIcon />,
@@ -369,13 +369,15 @@ const AppSidebar: React.FC = () => {
                 alt="Logo"
                 width={150}
                 height={40}
+                style={{ height: 'auto' }}
               />
               <Image
                 className="hidden dark:block"
                 src="/images/logo/logo-dark.svg"
-                alt="Logo"
+                alt="Logo Dark"
                 width={150}
                 height={40}
+                style={{ height: 'auto' }}
               />
             </>
           ) : (

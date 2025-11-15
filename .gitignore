@@ -151,6 +151,9 @@ logs
 dist/
 build/
 
+# Temporary docs
+docs
+
 # Package manager lock files (optional - uncomment if you want to ignore them)
 # pnpm-lock.yaml
 # yarn.lock

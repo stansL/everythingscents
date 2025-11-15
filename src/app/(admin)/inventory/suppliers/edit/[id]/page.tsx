@@ -2,30 +2,75 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { SupplierForm } from '@/components/inventory/SupplierForm';
-import PageBreadCrumb from '@/components/common/PageBreadCrumb';
-import ComponentCard from '@/components/common/ComponentCard';
+import Link from 'next/link';
 import { SupplierService } from '@/lib/services/inventory/supplierService';
-import type { Supplier } from '@/lib/services/products/types';
+import { SupplierInput, Supplier } from '@/lib/services/products/types';
+import PageBreadCrumb from '@/components/common/PageBreadCrumb';
 
 export default function EditSupplierPage() {
   const router = useRouter();
   const params = useParams();
   const supplierId = params.id as string;
   
-  const [supplier, setSupplier] = useState<Supplier | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState('');
+  const [supplier, setSupplier] = useState<Supplier | null>(null);
+  
+  const [formData, setFormData] = useState<SupplierInput>({
+    name: '',
+    code: '',
+    contactInfo: {
+      email: '',
+      phone: '',
+      address: {
+        street: '',
+        city: '',
+        state: '',
+        zipCode: '',
+        country: ''
+      },
+      contactPerson: ''
+    },
+    paymentTerms: '',
+    leadTime: 0,
+    minimumOrder: 0,
+    notes: ''
+  });
 
+  // Fetch supplier data on component mount
   useEffect(() => {
     const fetchSupplier = async () => {
       if (!supplierId) return;
       
       try {
-        setLoading(true);
+        setInitialLoading(true);
         const response = await SupplierService.getSupplierById(supplierId);
         if (response.success && response.data) {
-          setSupplier(response.data);
+          const supplierData = response.data;
+          setSupplier(supplierData);
+          
+          // Populate form with supplier data
+          setFormData({
+            name: supplierData.name || '',
+            code: supplierData.code || '',
+            contactInfo: {
+              email: supplierData.contactInfo?.email || '',
+              phone: supplierData.contactInfo?.phone || '',
+              address: {
+                street: typeof supplierData.contactInfo?.address === 'object' ? supplierData.contactInfo.address.street || '' : '',
+                city: typeof supplierData.contactInfo?.address === 'object' ? supplierData.contactInfo.address.city || '' : '',
+                state: typeof supplierData.contactInfo?.address === 'object' ? supplierData.contactInfo.address.state || '' : '',
+                zipCode: typeof supplierData.contactInfo?.address === 'object' ? supplierData.contactInfo.address.zipCode || '' : '',
+                country: typeof supplierData.contactInfo?.address === 'object' ? supplierData.contactInfo.address.country || '' : ''
+              },
+              contactPerson: supplierData.contactInfo?.contactPerson || ''
+            },
+            paymentTerms: supplierData.paymentTerms || '',
+            leadTime: supplierData.leadTime || 0,
+            minimumOrder: supplierData.minimumOrder || 0,
+            notes: supplierData.notes || ''
+          });
         } else {
           setError(response.error || 'Supplier not found');
         }
@@ -33,60 +78,102 @@ export default function EditSupplierPage() {
         setError('Failed to load supplier');
         console.error('Error loading supplier:', err);
       } finally {
-        setLoading(false);
+        setInitialLoading(false);
       }
     };
 
     fetchSupplier();
   }, [supplierId]);
 
-
-
-  const handleSuccess = () => {
-    // Navigate back to suppliers list after successful update
-    router.push('/inventory/suppliers');
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    
+    if (name.includes('.')) {
+      const [section, field, subField] = name.split('.');
+      setFormData((prev: SupplierInput) => {
+        const currentSection = prev[section as keyof SupplierInput] as Record<string, unknown>;
+        return {
+          ...prev,
+          [section]: {
+            ...currentSection,
+            [field]: subField ? {
+              ...(currentSection[field] as Record<string, unknown>),
+              [subField]: value
+            } : value
+          }
+        };
+      });
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: name === 'leadTime' || name === 'minimumOrder' ? parseInt(value) || 0 : value
+      }));
+    }
   };
 
-  const handleCancel = () => {
-    // Navigate back to suppliers list on cancel
-    router.push('/inventory/suppliers');
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    setLoading(true);
+    setError('');
+
+    try {
+      const supplierData = {
+        ...formData,
+        leadTime: Number(formData.leadTime),
+        minimumOrder: Number(formData.minimumOrder)
+      };
+
+      const response = await SupplierService.updateSupplier(supplierId, supplierData);
+      if (response.success) {
+        router.push('/inventory/suppliers');
+      } else {
+        setError(response.error || 'Failed to update supplier');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update supplier');
+    } finally {
+      setLoading(false);
+    }
   };
 
-
-
-  if (loading) {
+  if (initialLoading) {
     return (
-      <div className="flex items-center justify-center min-h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <PageBreadCrumb pageTitle="Edit Supplier" />
+            <p className="text-gray-600 dark:text-gray-400 mt-2">Loading supplier information...</p>
+          </div>
+        </div>
+        
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        </div>
       </div>
     );
   }
 
-  if (error || !supplier) {
+  if (error && !supplier) {
     return (
       <div className="space-y-6">
-        <PageBreadCrumb pageTitle="Edit Supplier" />
-        <ComponentCard title="Error">
-          <div className="text-center py-12">
-            <div className="text-red-400 mb-4">
-              <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16c-.77.833.192 2.5 1.732 2.5z" />
-              </svg>
-            </div>
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-              {error || 'Supplier not found'}
-            </h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">
-              The supplier you&apos;re looking for might have been deleted or doesn&apos;t exist.
-            </p>
-            <button
-              onClick={() => router.push('/inventory/suppliers')}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              Back to Suppliers
-            </button>
+        <div className="flex items-center justify-between">
+          <div>
+            <PageBreadCrumb pageTitle="Edit Supplier" />
+            <p className="text-gray-600 dark:text-gray-400 mt-2">Error loading supplier</p>
           </div>
-        </ComponentCard>
+          
+          <Link 
+            href="/inventory/suppliers"
+            className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+          >
+            Back to Suppliers
+          </Link>
+        </div>
+
+        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <p className="text-red-600 dark:text-red-400 text-sm">{error}</p>
+        </div>
       </div>
     );
   }
@@ -94,31 +181,320 @@ export default function EditSupplierPage() {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            Edit Supplier
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-2">
-            Update supplier information and contact details
+      <div>
+        <PageBreadCrumb pageTitle="Edit Supplier" />
+        <div className="flex items-center justify-between mt-2">
+          <p className="text-gray-600 dark:text-gray-400">
+            Update supplier profile information
           </p>
+          <Link 
+            href="/inventory/suppliers"
+            className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+          >
+            Back to Suppliers
+          </Link>
         </div>
       </div>
 
-      {/* Breadcrumb */}
-      <PageBreadCrumb pageTitle="Edit Supplier" />
-
-      {/* Form Container */}
-      <ComponentCard title={`Edit ${supplier.name}`}>
-        <div className="max-w-4xl">
-          <SupplierForm
-            supplier={supplier}
-            onSuccess={handleSuccess}
-            onCancel={handleCancel}
-            mode="edit"
-          />
+      {error && (
+        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <p className="text-red-600 dark:text-red-400 text-sm">{error}</p>
         </div>
-      </ComponentCard>
+      )}
+
+      {/* Full Page Form */}
+      <form onSubmit={handleSubmit} className="space-y-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Left Column - Basic Information */}
+          <div className="space-y-6">
+            <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
+                <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+                Basic Information
+              </h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Supplier Name *
+                  </label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Enter supplier name"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Supplier Code *
+                  </label>
+                  <input
+                    type="text"
+                    name="code"
+                    value={formData.code}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="SUP-001"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Contact Information */}
+            <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
+                <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                Contact Information
+              </h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    name="contactInfo.email"
+                    value={formData.contactInfo.email}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="supplier@example.com"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Phone
+                  </label>
+                  <input
+                    type="tel"
+                    name="contactInfo.phone"
+                    value={formData.contactInfo.phone}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="+1 (555) 000-0000"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Contact Person
+                  </label>
+                  <input
+                    type="text"
+                    name="contactInfo.contactPerson"
+                    value={formData.contactInfo.contactPerson}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Primary contact person"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column - Address & Business Details */}
+          <div className="space-y-6">
+            {/* Address */}
+            <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
+                <svg className="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                Address
+              </h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Street Address
+                  </label>
+                  <input
+                    type="text"
+                    name="contactInfo.address.street"
+                    value={formData.contactInfo.address?.street || ''}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="123 Main Street"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      City
+                    </label>
+                    <input
+                      type="text"
+                      name="contactInfo.address.city"
+                      value={formData.contactInfo.address?.city || ''}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="City"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      State
+                    </label>
+                    <input
+                      type="text"
+                      name="contactInfo.address.state"
+                      value={formData.contactInfo.address?.state || ''}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="State"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      ZIP Code
+                    </label>
+                    <input
+                      type="text"
+                      name="contactInfo.address.zipCode"
+                      value={formData.contactInfo.address?.zipCode || ''}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="12345"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Country
+                    </label>
+                    <input
+                      type="text"
+                      name="contactInfo.address.country"
+                      value={formData.contactInfo.address?.country || ''}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Country"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Business Terms */}
+            <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
+                <svg className="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Business Terms
+              </h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Payment Terms
+                  </label>
+                  <select
+                    name="paymentTerms"
+                    value={formData.paymentTerms}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">Select payment terms...</option>
+                    <option value="net-30">Net 30</option>
+                    <option value="net-15">Net 15</option>
+                    <option value="net-60">Net 60</option>
+                    <option value="cash-on-delivery">Cash on Delivery</option>
+                    <option value="advance-payment">Advance Payment</option>
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Lead Time (days)
+                    </label>
+                    <input
+                      type="number"
+                      name="leadTime"
+                      value={formData.leadTime}
+                      onChange={handleInputChange}
+                      min="0"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="7"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Minimum Order ($)
+                    </label>
+                    <input
+                      type="number"
+                      name="minimumOrder"
+                      value={formData.minimumOrder}
+                      onChange={handleInputChange}
+                      min="0"
+                      step="0.01"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="100.00"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Notes
+                  </label>
+                  <textarea
+                    name="notes"
+                    value={formData.notes}
+                    onChange={handleInputChange}
+                    rows={4}
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                    placeholder="Additional notes about this supplier..."
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Form Actions */}
+        <div className="flex items-center justify-end gap-4 pt-6 border-t border-gray-200 dark:border-gray-700">
+          <Link
+            href="/inventory/suppliers"
+            className="px-6 py-3 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+          >
+            Cancel
+          </Link>
+          <button
+            type="submit"
+            disabled={loading}
+            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+          >
+            {loading && (
+              <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            )}
+            {loading ? 'Updating...' : 'Update Supplier'}
+          </button>
+        </div>
+      </form>
     </div>
   );
 }
