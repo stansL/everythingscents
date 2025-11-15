@@ -1,5 +1,46 @@
 // Invoice Management System Types
 
+// Workflow Status Enum for Invoice Lifecycle
+export enum WorkflowStatus {
+  DRAFT = 'draft',
+  SENT = 'sent',
+  PARTIALLY_PAID = 'partially_paid',
+  PAID = 'paid',
+  OUT_FOR_DELIVERY = 'out_for_delivery',
+  DELIVERED = 'delivered',
+  PICKED_UP = 'picked_up',
+  CANCELLED = 'cancelled'
+}
+
+// Payment Method Enum
+export enum PaymentMethod {
+  CASH = 'cash',
+  MPESA = 'mpesa',
+  BANK_TRANSFER = 'bank_transfer'
+}
+
+// Payment Interface for Multiple Payments per Invoice
+export interface Payment {
+  id: string;
+  amount: number; // In cents
+  method: PaymentMethod;
+  reference?: string; // M-Pesa transaction ID
+  processedAt: Date;
+  notes?: string;
+}
+
+// Delivery Information Interface
+export interface DeliveryInfo {
+  type: 'pickup' | 'delivery';
+  status: 'pending' | 'out_for_delivery' | 'completed';
+  scheduledDate?: Date;
+  completedDate?: Date;
+  recipientName?: string;
+  recipientPhone?: string;
+  address?: string;
+  notes?: string;
+}
+
 export interface InvoiceItem {
   id?: string;
   description: string;
@@ -27,6 +68,15 @@ export interface Invoice {
   clientAddress?: string;       // Client address
   createdAt: Date;
   updatedAt: Date;
+  
+  // Enhanced Workflow Fields
+  workflowStatus: WorkflowStatus;
+  payments: Payment[];
+  deliveryInfo: DeliveryInfo;
+  orderSource: 'walk-in' | 'pwa' | 'staff-assisted';
+  paymentDueDate?: Date;
+  deliveryScheduledDate?: Date;
+  deliveryCompletedDate?: Date;
 }
 
 export interface InvoiceMetrics {
