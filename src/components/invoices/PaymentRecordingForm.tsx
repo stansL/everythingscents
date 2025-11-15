@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { PaymentMethod } from '@/lib/services/invoices/types';
+import { InvoiceService } from '@/lib/services/invoices/invoiceService';
 
 interface PaymentRecordingFormProps {
   invoiceId: string;
@@ -22,6 +23,7 @@ const PaymentRecordingForm: React.FC<PaymentRecordingFormProps> = ({
   const [notes, setNotes] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Convert cents to display format
   const formatCurrency = (cents: number): string => {
@@ -33,6 +35,67 @@ const PaymentRecordingForm: React.FC<PaymentRecordingFormProps> = ({
     // Allow only numbers and decimal point
     if (/^\d*\.?\d{0,2}$/.test(value)) {
       setAmount(value);
+    }
+  };
+
+  const validateForm = (): boolean => {
+    setError(null);
+    
+    if (!amount || parseFloat(amount) <= 0) {
+      setError('Please enter a valid payment amount');
+      return false;
+    }
+
+    const amountInCents = Math.round(parseFloat(amount) * 100);
+    if (amountInCents > remainingBalance) {
+      setError('Payment amount cannot exceed remaining balance');
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      const amountInCents = Math.round(parseFloat(amount) * 100);
+      
+      const response = await InvoiceService.recordPayment(invoiceId, {
+        amount: amountInCents,
+        method: paymentMethod,
+        reference: reference.trim() || undefined,
+        processedAt: new Date(),
+        notes: notes.trim() || undefined,
+      });
+
+      if (response.success) {
+        setSuccessMessage('Payment recorded successfully!');
+        // Clear form
+        setAmount('');
+        setReference('');
+        setNotes('');
+        setPaymentMethod(PaymentMethod.CASH);
+        
+        // Notify parent
+        if (onPaymentRecorded) {
+          onPaymentRecorded();
+        }
+      } else {
+        setError(response.error || 'Failed to record payment');
+      }
+    } catch {
+      setError('An unexpected error occurred');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -54,7 +117,13 @@ const PaymentRecordingForm: React.FC<PaymentRecordingFormProps> = ({
         </div>
       )}
 
-      <form className="space-y-4">
+      {successMessage && (
+        <div className="mb-4 rounded-lg bg-green-50 p-4 dark:bg-green-900/20">
+          <p className="text-sm text-green-800 dark:text-green-200">{successMessage}</p>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-4">
         {/* Amount Input */}
         <div>
           <label className="mb-2.5 block text-sm font-medium text-black dark:text-white">

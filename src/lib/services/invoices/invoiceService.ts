@@ -478,4 +478,135 @@ export class InvoiceService {
       };
     }
   }
+
+  // Record a payment for an invoice (Phase 1)
+  static async recordPayment(
+    invoiceId: string,
+    payment: Omit<import('./types').Payment, 'id'>
+  ): Promise<ServiceResponse<Invoice>> {
+    try {
+      await simulateDelay(300);
+      
+      const invoiceIndex = this.invoices.findIndex(inv => inv.id === invoiceId);
+      if (invoiceIndex === -1) {
+        return {
+          success: false,
+          error: 'Invoice not found'
+        };
+      }
+
+      const invoice = this.invoices[invoiceIndex];
+      
+      // Generate payment ID
+      const newPayment: import('./types').Payment = {
+        ...payment,
+        id: `PAY-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      };
+
+      // Add payment to invoice
+      const updatedPayments = [...(invoice.payments || []), newPayment];
+      
+      // Calculate total paid
+      const totalPaid = updatedPayments.reduce((sum, p) => sum + p.amount, 0);
+      
+      // Update workflow status based on payment
+      let newWorkflowStatus = invoice.workflowStatus;
+      if (totalPaid >= invoice.amount) {
+        newWorkflowStatus = 'paid' as import('./types').WorkflowStatus;
+      } else if (totalPaid > 0) {
+        newWorkflowStatus = 'partially_paid' as import('./types').WorkflowStatus;
+      }
+
+      // Update invoice
+      this.invoices[invoiceIndex] = {
+        ...invoice,
+        payments: updatedPayments,
+        workflowStatus: newWorkflowStatus,
+        updatedAt: new Date(),
+      };
+
+      return {
+        success: true,
+        data: this.invoices[invoiceIndex],
+        message: 'Payment recorded successfully'
+      };
+    } catch {
+      return {
+        success: false,
+        error: 'Failed to record payment'
+      };
+    }
+  }
+
+  // Update workflow status for an invoice (Phase 1)
+  static async updateWorkflowStatus(
+    invoiceId: string,
+    workflowStatus: import('./types').WorkflowStatus
+  ): Promise<ServiceResponse<Invoice>> {
+    try {
+      await simulateDelay(200);
+      
+      const invoiceIndex = this.invoices.findIndex(inv => inv.id === invoiceId);
+      if (invoiceIndex === -1) {
+        return {
+          success: false,
+          error: 'Invoice not found'
+        };
+      }
+
+      // Update invoice workflow status
+      this.invoices[invoiceIndex] = {
+        ...this.invoices[invoiceIndex],
+        workflowStatus,
+        updatedAt: new Date(),
+      };
+
+      return {
+        success: true,
+        data: this.invoices[invoiceIndex],
+        message: 'Workflow status updated successfully'
+      };
+    } catch {
+      return {
+        success: false,
+        error: 'Failed to update workflow status'
+      };
+    }
+  }
+
+  // Update delivery information for an invoice (Phase 1)
+  static async updateDeliveryInfo(
+    invoiceId: string,
+    deliveryInfo: import('./types').DeliveryInfo
+  ): Promise<ServiceResponse<Invoice>> {
+    try {
+      await simulateDelay(200);
+      
+      const invoiceIndex = this.invoices.findIndex(inv => inv.id === invoiceId);
+      if (invoiceIndex === -1) {
+        return {
+          success: false,
+          error: 'Invoice not found'
+        };
+      }
+
+      // Update invoice delivery info
+      this.invoices[invoiceIndex] = {
+        ...this.invoices[invoiceIndex],
+        deliveryInfo,
+        updatedAt: new Date(),
+      };
+
+      return {
+        success: true,
+        data: this.invoices[invoiceIndex],
+        message: 'Delivery information updated successfully'
+      };
+    } catch {
+      return {
+        success: false,
+        error: 'Failed to update delivery information'
+      };
+    }
+  }
 }
