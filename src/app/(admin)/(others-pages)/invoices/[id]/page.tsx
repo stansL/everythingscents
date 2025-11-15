@@ -3,9 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
-import { Invoice } from '@/lib/services/invoices/types';
+import { Invoice, WorkflowStatus, DeliveryInfo } from '@/lib/services/invoices/types';
 import { InvoiceService } from '@/lib/services/invoices/invoiceService';
 import { formatAmountFromCents, formatDate, getStatusColor } from '@/lib/utils/formatters';
+import { WorkflowStatusBadge, PaymentRecordingForm, PaymentHistory, DeliveryStatusToggle } from '@/components/invoices';
 
 export default function InvoiceViewPage() {
   const params = useParams();
@@ -16,31 +17,52 @@ export default function InvoiceViewPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const loadInvoice = async () => {
-      if (!invoiceId) return;
+  const loadInvoice = async () => {
+    if (!invoiceId) return;
+    
+    try {
+      setLoading(true);
+      setError(null);
       
-      try {
-        setLoading(true);
-        setError(null);
-        
-        const response = await InvoiceService.getInvoiceById(invoiceId);
-        
-        if (response.success && response.data) {
-          setInvoice(response.data);
-        } else {
-          setError(response.error || 'Invoice not found');
-        }
-      } catch (err) {
-        console.error('Error loading invoice:', err);
-        setError('Failed to load invoice');
-      } finally {
-        setLoading(false);
+      const response = await InvoiceService.getInvoiceById(invoiceId);
+      
+      if (response.success && response.data) {
+        setInvoice(response.data);
+      } else {
+        setError(response.error || 'Invoice not found');
       }
-    };
+    } catch (err) {
+      console.error('Error loading invoice:', err);
+      setError('Failed to load invoice');
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     loadInvoice();
   }, [invoiceId]);
+
+  const handlePaymentRecorded = () => {
+    // Reload invoice to get updated payment data
+    loadInvoice();
+  };
+
+  const handleDeliveryUpdate = async (updatedInfo: DeliveryInfo) => {
+    if (!invoice) return;
+    
+    const response = await InvoiceService.updateDeliveryInfo(invoiceId, updatedInfo);
+    if (response.success && response.data) {
+      setInvoice(response.data);
+    }
+  };
+
+  // Calculate remaining balance
+  const getRemainingBalance = (): number => {
+    if (!invoice) return 0;
+    const totalPaid = (invoice.payments || []).reduce((sum, payment) => sum + payment.amount, 0);
+    return invoice.amount - totalPaid;
+  };
 
   if (loading) {
     return (
@@ -109,13 +131,19 @@ export default function InvoiceViewPage() {
       
       {/* Header Actions */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
-            Invoice #{invoice.id}
-          </h1>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-            Created on {formatDate(invoice.createdAt)}
-          </p>
+        <div className="flex items-center gap-4">
+          <div>
+            <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
+              Invoice #{invoice.id}
+            </h1>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              Created on {formatDate(invoice.createdAt)}
+            </p>
+          </div>
+          {/* Workflow Status Badge */}
+          {invoice.workflowStatus && (
+            <WorkflowStatusBadge status={invoice.workflowStatus} />
+          )}
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -231,6 +259,28 @@ export default function InvoiceViewPage() {
                 {invoice.notes}
               </p>
             </div>
+          )}
+
+          {/* Payment Recording Section */}
+          {invoice.workflowStatus && getRemainingBalance() > 0 && (
+            <PaymentRecordingForm
+              invoiceId={invoice.id}
+              remainingBalance={getRemainingBalance()}
+              onPaymentRecorded={handlePaymentRecorded}
+            />
+          )}
+
+          {/* Payment History */}
+          {invoice.payments && invoice.payments.length > 0 && (
+            <PaymentHistory payments={invoice.payments} />
+          )}
+
+          {/* Delivery Status */}
+          {invoice.deliveryInfo && (
+            <DeliveryStatusToggle
+              deliveryInfo={invoice.deliveryInfo}
+              onUpdate={handleDeliveryUpdate}
+            />
           )}
         </div>
 
