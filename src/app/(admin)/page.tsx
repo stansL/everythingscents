@@ -6,6 +6,9 @@ import MonthlySalesChart from "@/components/ecommerce/MonthlySalesChart";
 import StatisticsChart from "@/components/ecommerce/StatisticsChart";
 import RecentOrders from "@/components/ecommerce/RecentOrders";
 import TopSellingProducts from "@/components/ecommerce/TopSellingProducts";
+import WorkflowOverview from "@/components/dashboard/WorkflowOverview";
+import RevenueBreakdown from "@/components/dashboard/RevenueBreakdown";
+import OutstandingInvoices from "@/components/dashboard/OutstandingInvoices";
 
 export const metadata: Metadata = {
   title:
@@ -26,8 +29,23 @@ export default function Ecommerce() {
         <MonthlyTarget />
       </div>
 
+      {/* Phase 4: Workflow Overview - Order → Invoice → Payment → Delivery Pipeline */}
+      <div className="col-span-12">
+        <WorkflowOverview />
+      </div>
+
       <div className="col-span-12">
         <StatisticsChart />
+      </div>
+
+      {/* Phase 4: Revenue Breakdown by Payment Method */}
+      <div className="col-span-12 xl:col-span-6">
+        <RevenueBreakdown />
+      </div>
+
+      {/* Phase 4: Outstanding Invoices with Overdue Tracking */}
+      <div className="col-span-12 xl:col-span-6">
+        <OutstandingInvoices />
       </div>
 
       <div className="col-span-12 xl:col-span-6">
