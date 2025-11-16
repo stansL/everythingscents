@@ -22,6 +22,7 @@ import {
 
 import { FirestoreService } from '../../firebase/firestore';
 import { COLLECTIONS } from '../../firebase/collections';
+import { notificationService } from '../../notifications';
 
 // Constants
 const COLLECTION_NAME = COLLECTIONS.INVOICES;
@@ -558,6 +559,27 @@ export class InvoiceService {
             success: false,
             error: 'Failed to record payment in Firebase'
           };
+        } finally {
+          // Send payment notification (after Firebase transaction completes)
+          // Note: In real implementation, this should be in a try-catch to prevent notification failures from affecting payment recording
+          try {
+            const invoice = await FirestoreService.getDocument<Invoice>(COLLECTION_NAME, invoiceId);
+            if (invoice?.clientEmail) {
+              await notificationService.notifyPaymentReceived(
+                invoice.clientEmail, // Use email as userId
+                invoice.clientEmail,
+                invoice.deliveryInfo?.recipientPhone,
+                invoice.clientName,
+                invoice.id,
+                newPayment.amount,
+                newPayment.method,
+                newPayment.reference
+              );
+            }
+          } catch (notifError) {
+            console.error('Failed to send payment notification:', notifError);
+            // Don't fail the payment if notification fails
+          }
         }
       } else {
         // Mock data implementation (fallback)
@@ -595,9 +617,30 @@ export class InvoiceService {
           updatedAt: new Date(),
         };
 
+        const updatedInvoice = this.invoices[invoiceIndex];
+
+        // Send payment notification
+        if (updatedInvoice.clientEmail) {
+          try {
+            await notificationService.notifyPaymentReceived(
+              updatedInvoice.clientEmail, // Use email as userId
+              updatedInvoice.clientEmail,
+              updatedInvoice.deliveryInfo?.recipientPhone,
+              updatedInvoice.clientName,
+              updatedInvoice.id,
+              newPayment.amount,
+              newPayment.method,
+              newPayment.reference
+            );
+          } catch (notifError) {
+            console.error('Failed to send payment notification:', notifError);
+            // Don't fail the payment if notification fails
+          }
+        }
+
         return {
           success: true,
-          data: this.invoices[invoiceIndex],
+          data: updatedInvoice,
           message: 'Payment recorded successfully'
         };
       }
@@ -633,9 +676,25 @@ export class InvoiceService {
         updatedAt: new Date(),
       };
 
+      const updatedInvoice = this.invoices[invoiceIndex];
+
+      // Send notification when invoice is sent
+      if (workflowStatus === 'sent' && updatedInvoice.clientEmail) {
+        await notificationService.notifyInvoiceSent(
+          updatedInvoice.clientEmail, // Use email as userId for customers
+          updatedInvoice.clientEmail,
+          updatedInvoice.deliveryInfo?.recipientPhone,
+          updatedInvoice.clientName,
+          updatedInvoice.id,
+          updatedInvoice.amount,
+          updatedInvoice.dueDate,
+          `/invoices/${updatedInvoice.id}`
+        );
+      }
+
       return {
         success: true,
-        data: this.invoices[invoiceIndex],
+        data: updatedInvoice,
         message: 'Workflow status updated successfully'
       };
     } catch {
@@ -669,9 +728,30 @@ export class InvoiceService {
         updatedAt: new Date(),
       };
 
+      const updatedInvoice = this.invoices[invoiceIndex];
+
+      // Send delivery notification when status changes
+      if (deliveryInfo.status && updatedInvoice.clientEmail) {
+        try {
+          await notificationService.notifyDelivery(
+            updatedInvoice.clientEmail, // Use email as userId
+            updatedInvoice.clientEmail,
+            updatedInvoice.deliveryInfo?.recipientPhone,
+            undefined, // fcmToken - not available yet
+            updatedInvoice.clientName,
+            updatedInvoice.id, // Use invoice ID as order number
+            deliveryInfo.status === 'pending' ? 'scheduled' : 
+              deliveryInfo.status === 'out_for_delivery' ? 'out_for_delivery' : 'delivered'
+          );
+        } catch (notifError) {
+          console.error('Failed to send delivery notification:', notifError);
+          // Don't fail the update if notification fails
+        }
+      }
+
       return {
         success: true,
-        data: this.invoices[invoiceIndex],
+        data: updatedInvoice,
         message: 'Delivery information updated successfully'
       };
     } catch {
