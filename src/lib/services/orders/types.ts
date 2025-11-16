@@ -1,116 +1,121 @@
-import { BaseEntity } from "../common/types";
+/**
+ * Order Management Types
+ * Defines interfaces and enums for order handling and PWA integration
+ */
 
+import { Timestamp } from 'firebase/firestore';
+
+/**
+ * Order Status Enum
+ * Tracks the lifecycle of an order from creation to completion
+ */
+export enum OrderStatus {
+  PENDING = 'pending',           // Order created, awaiting confirmation
+  CONFIRMED = 'confirmed',       // Order confirmed by staff
+  PROCESSING = 'processing',     // Order being prepared
+  READY = 'ready',              // Order ready for pickup/delivery
+  OUT_FOR_DELIVERY = 'out_for_delivery', // Order dispatched for delivery
+  DELIVERED = 'delivered',      // Order successfully delivered
+  PICKED_UP = 'picked_up',      // Order picked up by customer
+  CANCELLED = 'cancelled',      // Order cancelled
+  FAILED = 'failed'             // Order failed (payment/delivery issue)
+}
+
+/**
+ * Order Source Enum
+ * Identifies where the order originated from
+ */
+export enum OrderSource {
+  PWA = 'pwa',           // Order from PWA (customer self-service)
+  ADMIN = 'admin',       // Order created by staff via admin dashboard
+  PHONE = 'phone',       // Order taken over phone
+  WALK_IN = 'walk_in'    // Walk-in customer order
+}
+
+/**
+ * Order Item Interface
+ * Represents a single product in an order
+ */
 export interface OrderItem {
   productId: string;
   productName: string;
-  productSku: string;
   quantity: number;
   unitPrice: number;
+  discount: number;        // Discount percentage (0-100)
   totalPrice: number;
-  productImage?: string;
+  notes?: string;
 }
 
-export interface ShippingAddress {
-  firstName: string;
-  lastName: string;
-  company?: string;
-  addressLine1: string;
-  addressLine2?: string;
-  city: string;
-  state: string;
-  postalCode: string;
-  country: string;
-  phone?: string;
-}
-
-export type BillingAddress = ShippingAddress;
-
-export type OrderStatus = 
-  | 'pending'
-  | 'confirmed'
-  | 'processing'
-  | 'shipped'
-  | 'delivered'
-  | 'cancelled'
-  | 'refunded';
-
-export type PaymentStatus = 
-  | 'pending'
-  | 'paid'
-  | 'failed'
-  | 'refunded'
-  | 'partially_refunded';
-
-export type PaymentMethod = 
-  | 'credit_card'
-  | 'debit_card'
-  | 'paypal'
-  | 'stripe'
-  | 'bank_transfer'
-  | 'cash_on_delivery';
-
-export interface Order extends BaseEntity {
-  orderNumber: string;
-  customerId: string;
-  customerEmail: string;
+/**
+ * Order Interface
+ * Represents a customer order that can be converted to an invoice
+ */
+export interface Order {
+  id: string;
+  orderNumber: string;           // Human-readable order number (e.g., ORD-2024-001)
+  
+  // Customer Information
+  customerId?: string;            // Reference to user if registered
   customerName: string;
+  customerPhone: string;
+  customerEmail?: string;
   
-  // Order items
+  // Order Details
   items: OrderItem[];
-  
-  // Pricing
   subtotal: number;
-  taxAmount: number;
-  shippingAmount: number;
-  discountAmount: number;
-  totalAmount: number;
+  discountPercentage: number;  // Overall order discount percentage (0-100)
+  tax: number;
+  total: number;
   
-  // Status
-  orderStatus: OrderStatus;
-  paymentStatus: PaymentStatus;
+  // Order Status
+  status: OrderStatus;
+  source: OrderSource;
   
-  // Payment
-  paymentMethod: PaymentMethod;
-  paymentTransactionId?: string;
+  // Delivery Information
+  deliveryMethod: 'pickup' | 'delivery';
+  deliveryAddress?: string;
+  deliveryNotes?: string;
+  estimatedDeliveryDate?: Date | Timestamp;
   
-  // Addresses
-  shippingAddress: ShippingAddress;
-  billingAddress: BillingAddress;
+  // Payment Information (optional at order stage)
+  isPaid: boolean;
+  paymentMethod?: string;
+  paymentReference?: string;
   
-  // Shipping
-  shippingMethod?: string;
-  trackingNumber?: string;
-  estimatedDeliveryDate?: Date;
-  actualDeliveryDate?: Date;
+  // Conversion to Invoice
+  invoiceId?: string;             // Set when order is converted to invoice
+  convertedAt?: Date | Timestamp; // Timestamp of conversion
   
-  // Discounts & Promotions
-  promoCode?: string;
-  promoDiscount?: number;
-  
-  // Notes
-  customerNotes?: string;
-  adminNotes?: string;
-  
-  // Dates
-  orderDate: Date;
-  confirmedDate?: Date;
-  shippedDate?: Date;
-  deliveredDate?: Date;
-  cancelledDate?: Date;
+  // Metadata
+  notes?: string;
+  createdBy: string;              // User ID of staff who created order
+  createdAt: Date | Timestamp;
+  updatedAt: Date | Timestamp;
 }
 
+/**
+ * Order Summary Interface
+ * Used for displaying order lists and summaries
+ */
+export interface OrderSummary {
+  id: string;
+  orderNumber: string;
+  customerName: string;
+  total: number;
+  status: OrderStatus;
+  source: OrderSource;
+  createdAt: Date | Timestamp;
+}
+
+/**
+ * Order Filter Interface
+ * Used for filtering orders in queries
+ */
 export interface OrderFilter {
+  status?: OrderStatus;
+  source?: OrderSource;
   customerId?: string;
-  orderStatus?: OrderStatus;
-  paymentStatus?: PaymentStatus;
-  paymentMethod?: PaymentMethod;
-  dateFrom?: Date;
-  dateTo?: Date;
-  minAmount?: number;
-  maxAmount?: number;
-  searchTerm?: string; // Search by order number, customer name, or email
+  dateFrom?: Date | Timestamp;
+  dateTo?: Date | Timestamp;
+  searchTerm?: string;
 }
-
-export type OrderCreateInput = Omit<Order, 'id' | 'createdAt' | 'updatedAt' | 'orderNumber'>;
-
-export type OrderUpdateInput = Partial<Omit<Order, 'id' | 'createdAt' | 'updatedAt' | 'orderNumber' | 'customerId'>>;
