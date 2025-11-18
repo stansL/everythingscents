@@ -67,18 +67,16 @@ const navItems: NavItem[] = [
   },
   {
     icon: <UserCircleIcon />,
-    name: "Manage Customers",
-    path: "/manage-customers",
+    name: "User Management",
+    subItems: [
+      { name: "Customers", path: "/manage-customers", pro: false },
+      { name: "Employees", path: "/manage-employees", pro: false },
+    ],
   },
   {
     icon: <GridIcon />,
     name: "Manage Promotions",
     path: "/manage-promotions",
-  },
-  {
-    icon: <UserCircleIcon />,
-    name: "Manage Employees",
-    path: "/manage-employees",
   },
   // {
   //   icon: <UserCircleIcon />,
