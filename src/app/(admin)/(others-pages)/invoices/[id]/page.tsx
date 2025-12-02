@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import { Invoice, DeliveryInfo } from '@/lib/services/invoices/types';
 import { InvoiceService } from '@/lib/services/invoices/invoiceService';
@@ -13,11 +13,13 @@ import { Modal } from '@/components/ui/modal';
 export default function InvoiceViewPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const invoiceId = params.id as string;
   
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [paymentSuccess, setPaymentSuccess] = useState(false);
   const { isOpen: isPaymentModalOpen, openModal: openPaymentModal, closeModal: closePaymentModal } = useModal();
 
   const loadInvoice = async () => {
@@ -44,6 +46,19 @@ export default function InvoiceViewPage() {
 
   useEffect(() => {
     loadInvoice();
+    
+    // Check if returning from Paystack payment
+    const paymentStatus = searchParams.get('payment');
+    if (paymentStatus === 'success') {
+      setPaymentSuccess(true);
+      // Clear the URL parameter
+      const url = new URL(window.location.href);
+      url.searchParams.delete('payment');
+      window.history.replaceState({}, '', url.toString());
+      
+      // Auto-dismiss after 5 seconds
+      setTimeout(() => setPaymentSuccess(false), 5000);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [invoiceId]);
 
@@ -132,6 +147,35 @@ export default function InvoiceViewPage() {
           { label: `Invoice #${invoice.id}` }
         ]}
       />
+      
+      {/* Payment Success Banner */}
+      {paymentSuccess && (
+        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0">
+              <svg className="w-5 h-5 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <h3 className="text-sm font-medium text-green-800 dark:text-green-200">
+                Payment Completed Successfully
+              </h3>
+              <p className="mt-1 text-sm text-green-700 dark:text-green-300">
+                Your payment has been processed. The invoice will be updated once the payment is confirmed via webhook.
+              </p>
+            </div>
+            <button
+              onClick={() => setPaymentSuccess(false)}
+              className="flex-shrink-0 text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300"
+            >
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
       
       {/* Header Actions */}
       <div className="flex items-center justify-between">
@@ -442,6 +486,8 @@ export default function InvoiceViewPage() {
             <PaymentRecordingForm
               invoiceId={invoice.id}
               remainingBalance={getRemainingBalance()}
+              customerPhone={invoice.clientPhone}
+              customerEmail={invoice.clientEmail}
               onPaymentRecorded={handlePaymentRecorded}
               onClose={closePaymentModal}
             />

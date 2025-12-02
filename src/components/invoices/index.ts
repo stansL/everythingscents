@@ -15,6 +15,7 @@ export { default as InvoiceDeleteModal } from './InvoiceDeleteModal';
 export { default as WorkflowStatusBadge } from './WorkflowStatusBadge';
 export { default as PaymentRecordingForm } from './PaymentRecordingForm';
 export { default as PaymentHistory } from './PaymentHistory';
+export { default as PaymentMethodSelector } from './PaymentMethodSelector';
 export { default as DeliveryStatusToggle } from './DeliveryStatusToggle';
 
 // Note: Using named exports only to avoid duplicates

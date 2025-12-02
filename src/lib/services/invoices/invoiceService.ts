@@ -625,7 +625,7 @@ export class InvoiceService {
             await notificationService.notifyPaymentReceived(
               updatedInvoice.clientEmail, // Use email as userId
               updatedInvoice.clientEmail,
-              updatedInvoice.deliveryInfo?.recipientPhone,
+              updatedInvoice.deliveryInfo?.recipientPhone || '',
               updatedInvoice.clientName,
               updatedInvoice.id,
               newPayment.amount,

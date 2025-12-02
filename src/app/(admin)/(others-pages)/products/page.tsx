@@ -12,69 +12,78 @@ export default function ProductsPage() {
   const [error, setError] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
   const [filters, setFilters] = useState({
     brand: "",
     category: "",
+    subcategory: "",
     isActive: "all",
     isFeatured: "all"
   });
   const [lastDoc, setLastDoc] = useState<unknown>(null);
   const [, setHasMore] = useState(false);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
   const pageSize = 10;
 
   useEffect(() => {
-    loadProducts(true);
-  }, [currentPage, searchTerm, filters]); // eslint-disable-line react-hooks/exhaustive-deps
+    loadAllProducts();
+  }, [searchTerm, filters]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const loadProducts = async (reset = false) => {
+  useEffect(() => {
+    // Update displayed products when page changes
+    if (allProducts.length > 0) {
+      const startIdx = (currentPage - 1) * pageSize;
+      const endIdx = startIdx + pageSize;
+      setProducts(allProducts.slice(startIdx, endIdx));
+    }
+  }, [currentPage, allProducts]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const loadAllProducts = async () => {
     try {
       setLoading(true);
+      setCurrentPage(1); // Reset to page 1 when filters change
       let response;
 
       if (searchTerm) {
         response = await ProductService.searchProducts(searchTerm);
-        if (response.success && response.data) {
-          setProducts(response.data);
-          setTotalPages(Math.ceil(response.data.length / pageSize));
-          setHasMore(false);
-        }
       } else {
         const productFilter = {
           ...(filters.brand && { brand: filters.brand }),
           ...(filters.category && { categoryId: filters.category }),
+          ...(filters.subcategory && { subcategoryId: filters.subcategory }),
           ...(filters.isActive !== "all" && { status: filters.isActive as ProductStatus }),
           ...(filters.isFeatured !== "all" && { isFeatured: filters.isFeatured === "true" })
         };
 
-        response = await ProductService.getProductsPaginated(
-          pageSize,
-          reset ? undefined : lastDoc,
+        response = await ProductService.getProducts(
           Object.keys(productFilter).length > 0 ? productFilter : undefined
         );
-
-        if (response.success && response.data) {
-          setProducts(response.data.data);
-          setHasMore(response.data.hasMore);
-          setLastDoc(response.data.lastDoc);
-          // For pagination, we'll estimate total pages based on current data
-          // In a real implementation, you might want to get total count separately
-          setTotalPages(currentPage + (response.data.hasMore ? 1 : 0));
-        }
       }
 
-      if (!response.success) {
+      if (response.success && response.data) {
+        setAllProducts(response.data);
+        setTotalCount(response.data.length);
+        setTotalPages(Math.ceil(response.data.length / pageSize));
+        
+        // Set first page of products
+        setProducts(response.data.slice(0, pageSize));
+      } else {
         setError(response.error || "Failed to load products");
+        setAllProducts([]);
+        setProducts([]);
       }
-    } catch {
+    } catch (err) {
       setError("An error occurred while loading products");
+      setAllProducts([]);
+      setProducts([]);
     } finally {
       setLoading(false);
     }
   };
 
   const handleRefresh = () => {
-    loadProducts(true);
+    loadAllProducts();
   };
 
   const handleSearch = (term: string) => {
@@ -125,6 +134,7 @@ export default function ProductsPage() {
           loading={loading}
           currentPage={currentPage}
           totalPages={totalPages}
+          totalCount={totalCount}
           searchTerm={searchTerm}
           filters={filters}
           onSearch={handleSearch}
@@ -132,7 +142,7 @@ export default function ProductsPage() {
           onPageChange={handlePageChange}
           onRefresh={handleRefresh}
           onAddProduct={handleAddProduct}
-          onProductUpdate={() => loadProducts(true)}
+          onProductUpdate={() => loadAllProducts()}
         />
       </div>
     </div>
