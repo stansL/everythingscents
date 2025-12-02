@@ -1,11 +1,13 @@
 "use client";
 import React from "react";
+import { CategorySelector } from "@/components/categories";
 
 interface ProductFiltersProps {
   searchTerm: string;
   filters: {
     brand: string;
-    category: string;
+    category: string; // Maps to categoryId for backward compatibility
+    subcategory?: string; // Maps to subcategoryId
     isActive: string; // Keep isActive for backward compatibility with existing code
     isFeatured: string;
   };
@@ -13,6 +15,7 @@ interface ProductFiltersProps {
   onFilterChange: (filters: {
     brand: string;
     category: string;
+    subcategory?: string;
     isActive: string;
     isFeatured: string;
   }) => void;
@@ -35,6 +38,7 @@ const ProductFilters: React.FC<ProductFiltersProps> = ({
     onFilterChange({
       brand: "",
       category: "",
+      subcategory: "",
       isActive: "all",
       isFeatured: "all",
     });
@@ -93,22 +97,25 @@ const ProductFilters: React.FC<ProductFiltersProps> = ({
         </div>
 
         {/* Category Filter */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Category
-          </label>
-          <select
-            value={filters.category}
-            onChange={(e) => handleFilterChange("category", e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-          >
-            <option value="">All Categories</option>
-            <option value="perfumes">Perfumes</option>
-            <option value="colognes">Colognes</option>
-            <option value="body-sprays">Body Sprays</option>
-            <option value="candles">Candles</option>
-            <option value="diffusers">Diffusers</option>
-          </select>
+        <div className="lg:col-span-2">
+          <CategorySelector
+            selectedCategoryId={filters.category}
+            selectedSubcategoryId={filters.subcategory || ''}
+            onCategoryChange={(categoryId) => {
+              onFilterChange({
+                ...filters,
+                category: categoryId,
+                subcategory: '', // Reset subcategory when category changes
+              });
+            }}
+            onSubcategoryChange={(subcategoryId) => {
+              onFilterChange({
+                ...filters,
+                subcategory: subcategoryId,
+              });
+            }}
+            required={false}
+          />
         </div>
 
         {/* Status Filter */}

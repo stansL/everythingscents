@@ -125,6 +125,10 @@ class SMSService {
    * Format phone number to Kenya standard (+254)
    */
   private formatPhoneNumber(phoneNumber: string): string | null {
+    if (!phoneNumber || typeof phoneNumber !== 'string') {
+      return null;
+    }
+    
     // Remove spaces and special characters
     let cleaned = phoneNumber.replace(/[\s\-()]/g, '');
 

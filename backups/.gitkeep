@@ -1,0 +1,7 @@
+# Backups Directory
+
+This directory stores JSON backups of categories and products before migration.
+
+Backups are automatically created by the backup script and used for rollback operations.
+
+**Note**: Backup files are not committed to git (see .gitignore)

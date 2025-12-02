@@ -29,6 +29,21 @@ export interface ServiceResponse<T> {
 
 // Common utility functions for services
 export class ServiceUtils {
+  static success<T>(data: T, message?: string): ServiceResponse<T> {
+    return {
+      success: true,
+      data,
+      message,
+    };
+  }
+
+  static error<T>(error: string): ServiceResponse<T> {
+    return {
+      success: false,
+      error,
+    };
+  }
+
   static createSuccessResponse<T>(data: T, message?: string): ServiceResponse<T> {
     return {
       success: true,

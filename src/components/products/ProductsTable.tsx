@@ -9,12 +9,14 @@ import ProductViewModal from "./ProductViewModal";
 import ProductDeleteModal from "./ProductDeleteModal";
 import ProductFilters from "./ProductFilters";
 import ProductImage from "./ProductImage";
+import ProductCategoryCell from "./ProductCategoryCell";
 
 interface ProductsTableProps {
   products: Product[];
   loading: boolean;
   currentPage: number;
   totalPages: number;
+  totalCount?: number;
   searchTerm: string;
   filters: {
     brand: string;
@@ -35,11 +37,12 @@ interface ProductsTableProps {
   onProductUpdate: () => void;
 }
 
-const ProductsTable: React.FC<ProductsTableProps> = ({
+function ProductsTable({
   products,
   loading,
   currentPage,
   totalPages,
+  totalCount,
   searchTerm,
   filters,
   onSearch,
@@ -48,7 +51,7 @@ const ProductsTable: React.FC<ProductsTableProps> = ({
   onRefresh,
   onAddProduct,
   onProductUpdate,
-}) => {
+}: ProductsTableProps) {
   const router = useRouter();
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [modalType, setModalType] = useState<'view' | 'delete' | null>(null);
@@ -197,9 +200,10 @@ const ProductsTable: React.FC<ProductsTableProps> = ({
                       </div>
                     </TableCell>
                     <TableCell className="border-b border-[#eee] py-5 px-4 dark:border-strokedark">
-                      <p className="text-black dark:text-white">
-                        {product.categoryId}
-                      </p>
+                      <ProductCategoryCell 
+                        categoryId={product.categoryId}
+                        subcategoryId={product.subcategoryId}
+                      />
                     </TableCell>
                     <TableCell className="border-b border-[#eee] py-5 px-4 dark:border-strokedark">
                       <p className="text-black dark:text-white">
@@ -207,13 +211,13 @@ const ProductsTable: React.FC<ProductsTableProps> = ({
                       </p>
                     </TableCell>
                     <TableCell className="border-b border-[#eee] py-5 px-4 dark:border-strokedark">
-                      <p className="text-black dark:text-white">
+                      <div className="text-black dark:text-white">
                         {formatPrice(product.price, product.salePrice)}
-                      </p>
+                      </div>
                     </TableCell>
                     <TableCell className="border-b border-[#eee] py-5 px-4 dark:border-strokedark">
                       <div className="flex flex-col gap-1">
-                        <span className="text-sm font-medium text-black dark:text-white">{product.stock}</span>
+                        <div className="text-sm font-medium text-black dark:text-white">{product.stock}</div>
                         {getStockStatus(product.stock, product.minStock)}
                       </div>
                     </TableCell>
@@ -306,7 +310,7 @@ const ProductsTable: React.FC<ProductsTableProps> = ({
       {/* Pagination and Stats - TailAdmin Style */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-4">
         <div className="text-sm text-gray-700 dark:text-gray-400">
-          Showing {((currentPage - 1) * 10) + 1} to {Math.min(currentPage * 10, products.length)} of {products.length} products
+          Showing {((currentPage - 1) * 10) + 1} to {Math.min(((currentPage - 1) * 10) + products.length, totalCount || (currentPage * 10))} of {totalCount || (currentPage * 10) + (totalPages > currentPage ? 1 : 0)} products
         </div>
         
         {totalPages > 1 && (
@@ -337,6 +341,7 @@ const ProductsTable: React.FC<ProductsTableProps> = ({
       )}
     </div>
   );
-};
+}
 
 export default ProductsTable;
+

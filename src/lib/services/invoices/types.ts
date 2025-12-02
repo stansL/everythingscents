@@ -16,6 +16,8 @@ export enum WorkflowStatus {
 export enum PaymentMethod {
   CASH = 'cash',
   MPESA = 'mpesa',
+  AIRTEL_MONEY = 'airtel_money',
+  PAYSTACK = 'paystack',
   BANK_TRANSFER = 'bank_transfer'
 }
 
@@ -24,8 +26,10 @@ export interface Payment {
   id: string;
   amount: number; // In cents
   method: PaymentMethod;
-  reference?: string; // M-Pesa transaction ID
+  reference?: string; // Transaction ID (M-Pesa/Airtel Money/Paystack)
+  phoneNumber?: string; // Phone number for mobile money payments
   processedAt: Date;
+  status?: 'pending' | 'completed' | 'failed'; // Payment status for async payments
   notes?: string;
 }
 

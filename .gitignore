@@ -158,3 +158,18 @@ docs
 # pnpm-lock.yaml
 # yarn.lock
 # package-lock.json
+scripts/addBestSellersCollection.ts
+scripts/auditFirestore-browser.js
+scripts/auditFirestore.ts
+scripts/bulkImportProducts.ts
+scripts/importAllCollections.ts
+scripts/importCollections.ts
+scripts/migrateToHierarchicalCategories.ts
+scripts/README.md
+scripts/recalculateCollectionCounts.ts
+scripts/rollbackMigration.ts
+scripts/seedCollections.ts
+scripts/tagProductsWithCollections.ts
+scripts/categories/backupCategories.ts
+scripts/categories/migrateToHierarchicalCategories.ts
+scripts/categories/rollbackMigration.ts

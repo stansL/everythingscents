@@ -2,23 +2,73 @@
 import React, { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
-import { ProductService, Product, ProductStatus } from "@/lib";
+import { ProductService, StorageService, Product, ProductStatus } from "@/lib";
 import { ProductDeleteModal } from "@/components/products";
 import { useModal } from "@/hooks/useModal";
+import {
+  ProductDescriptionSection,
+  ProductImageSection,
+  ScentProfileSection,
+  PricingAvailabilitySection,
+  SEOCollectionsSection,
+} from "@/components/products/ProductFormSections";
 
-export default function ViewEditProductPage() {
+export default function EditProductPage() {
   const router = useRouter();
   const params = useParams();
   const productId = params.id as string;
   
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [isEditMode, setIsEditMode] = useState(false);
-  const [formData, setFormData] = useState<Partial<Product>>({});
-  const [isSaving, setIsSaving] = useState(false);
+  const [imageUploading, setImageUploading] = useState(false);
   const { isOpen: isDeleteModalOpen, openModal: openDeleteModal, closeModal: closeDeleteModal } = useModal();
 
+  const [formData, setFormData] = useState<Partial<Product>>({
+    name: "",
+    description: "",
+    costPrice: 0,
+    price: 0,
+    salePrice: 0,
+    sku: "",
+    categoryId: "",
+    subcategoryId: "",
+    brand: "",
+    images: [],
+    thumbnail: "",
+    stock: 0,
+    minStock: 0,
+    weight: 0,
+    dimensions: {
+      length: 0,
+      width: 0,
+      height: 0,
+    },
+    tags: [],
+    isActive: true,
+    isFeatured: false,
+    status: 'draft',
+    scentProfile: {
+      topNotes: [],
+      middleNotes: [],
+      baseNotes: [],
+    },
+    scentType: "perfume",
+    size: "",
+    gender: "unisex",
+    season: "year-round",
+    longevity: "moderate",
+    sillage: "moderate",
+    metaTitle: "",
+    metaDescription: "",
+    metaKeywords: [],
+    taxable: true,
+    collections: [],
+  });
+
+  // Load product data
   useEffect(() => {
     loadProduct();
   }, [productId]);
@@ -30,6 +80,7 @@ export default function ViewEditProductPage() {
       
       if (response.success && response.data) {
         setProduct(response.data);
+        // Pre-fill form with product data
         setFormData(response.data);
       } else {
         setError(response.error || "Product not found");
@@ -43,37 +94,14 @@ export default function ViewEditProductPage() {
   };
 
   const handleEditToggle = () => {
-    if (isEditMode) {
-      // Cancel edit - revert changes
-      setFormData(product || {});
+    if (isEditMode && product) {
+      // Cancel - revert to original product data
+      setFormData(product);
     }
     setIsEditMode(!isEditMode);
   };
 
-  const handleSaveChanges = async () => {
-    if (!product || !formData || !product.id) return;
-
-    try {
-      setIsSaving(true);
-      const response = await ProductService.updateProduct(product.id, formData);
-      
-      if (response.success) {
-        setProduct({ ...product, ...formData });
-        setIsEditMode(false);
-        // You could show a success message here
-      } else {
-        setError(response.error || "Failed to update product");
-      }
-    } catch (err) {
-      setError("An error occurred while updating the product");
-      console.error("Error updating product:", err);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   const handleDeleteProduct = () => {
-    if (!product || !product.id) return;
     openDeleteModal();
   };
 
@@ -82,17 +110,81 @@ export default function ViewEditProductPage() {
     router.push('/products?message=Product deleted successfully');
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
     const { name, value, type } = e.target;
     
-    if (type === 'checkbox') {
-      const checked = (e.target as HTMLInputElement).checked;
-      setFormData(prev => ({ ...prev, [name]: checked }));
-    } else if (type === 'number') {
-      setFormData(prev => ({ ...prev, [name]: parseFloat(value) || 0 }));
+    if (type === "checkbox") {
+      const checkbox = e.target as HTMLInputElement;
+      setFormData(prev => ({
+        ...prev,
+        [name]: checkbox.checked
+      }));
+    } else if (type === "number") {
+      setFormData(prev => ({
+        ...prev,
+        [name]: parseFloat(value) || 0
+      }));
     } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
     }
+  };
+
+  const handleArrayChange = (name: string, value: string) => {
+    const array = value.split(',').map(item => item.trim()).filter(item => item);
+    setFormData(prev => ({
+      ...prev,
+      [name]: array
+    }));
+  };
+
+  const handleScentProfileChange = (type: 'topNotes' | 'middleNotes' | 'baseNotes', value: string) => {
+    const array = value.split(',').map(item => item.trim()).filter(item => item);
+    setFormData(prev => ({
+      ...prev,
+      scentProfile: {
+        ...prev.scentProfile!,
+        [type]: array
+      }
+    }));
+  };
+
+  const handleCollectionToggle = (collectionId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      collections: prev.collections?.includes(collectionId)
+        ? prev.collections.filter(id => id !== collectionId)
+        : [...(prev.collections || []), collectionId]
+    }));
+  };
+
+  const handleCategoryChange = (categoryId: string | null) => {
+    setFormData(prev => ({
+      ...prev,
+      categoryId: categoryId || "",
+      subcategoryId: "" // Reset subcategory when category changes
+    }));
+  };
+
+  const handleSubcategoryChange = (subcategoryId: string | null) => {
+    setFormData(prev => ({
+      ...prev,
+      subcategoryId: subcategoryId || ""
+    }));
+  };
+
+  const handleDimensionsChange = (dimension: 'length' | 'width' | 'height', value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      dimensions: {
+        ...prev.dimensions!,
+        [dimension]: parseFloat(value) || 0
+      }
+    }));
   };
 
   const handleStatusChange = (newStatus: ProductStatus) => {
@@ -102,6 +194,102 @@ export default function ViewEditProductPage() {
       status: newStatus,
       isActive 
     }));
+  };
+
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    setImageUploading(true);
+    setError("");
+
+    try {
+      const uploadPromises = Array.from(files).map(async (file) => {
+        const timestamp = Date.now();
+        const brandFolder = formData.brand?.replace(/[^a-zA-Z0-9]/g, '_') || 'unbranded';
+        const productFolder = formData.name?.replace(/[^a-zA-Z0-9]/g, '_') || `product_${productId}`;
+        const fileName = `${timestamp}_${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
+        const folderPath = `products/${brandFolder}/${productFolder}/${fileName}`;
+        
+        const metadata = {
+          customMetadata: {
+            productId: productId,
+            brand: formData.brand || '',
+            productName: formData.name || '',
+            uploadedAt: new Date().toISOString(),
+          }
+        };
+        
+        await StorageService.uploadFile(folderPath, file, metadata);
+        const downloadURL = await StorageService.getDownloadURL(folderPath);
+        return downloadURL;
+      });
+
+      const imageUrls = await Promise.all(uploadPromises);
+      const newImages = [...(formData.images || []), ...imageUrls];
+      
+      // Auto-select first image as thumbnail if none selected
+      const newThumbnail = formData.thumbnail || (imageUrls.length > 0 ? imageUrls[0] : "");
+      
+      setFormData(prev => ({
+        ...prev,
+        images: newImages,
+        thumbnail: newThumbnail
+      }));
+    } catch (err) {
+      setError(`Image upload failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setImageUploading(false);
+    }
+  };
+
+  const handleRemoveImage = (imageUrl: string) => {
+    const newImages = (formData.images || []).filter(url => url !== imageUrl);
+    
+    setFormData(prev => {
+      const updates: Partial<Product> = {
+        ...prev,
+        images: newImages
+      };
+      
+      // If removed image was the thumbnail, select first remaining or clear
+      if (prev.thumbnail === imageUrl) {
+        updates.thumbnail = newImages.length > 0 ? newImages[0] : "";
+      }
+      
+      return updates;
+    });
+  };
+
+  const handleThumbnailSelect = (imageUrl: string) => {
+    setFormData(prev => ({
+      ...prev,
+      thumbnail: imageUrl
+    }));
+  };
+
+  const handleUpdate = async () => {
+    if (!product || !product.id) return;
+    
+    try {
+      setSaving(true);
+      setError("");
+      
+      const response = await ProductService.updateProduct(product.id, formData);
+      
+      if (response.success) {
+        setProduct({ ...product, ...formData });
+        setIsEditMode(false);
+        // Could show success message
+      } else {
+        setError(response.error || "Failed to update product");
+      }
+    } catch (err) {
+      setError("An error occurred while updating the product");
+      console.error("Error updating product:", err);
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) {
@@ -117,7 +305,7 @@ export default function ViewEditProductPage() {
     );
   }
 
-  if (error || !product) {
+  if (error && !product) {
     return (
       <div>
         <PageBreadcrumb pageTitle="Product Not Found" />
@@ -139,11 +327,11 @@ export default function ViewEditProductPage() {
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <PageBreadcrumb 
-        pageTitle={isEditMode ? `Edit ${product.name}` : product.name} 
+        pageTitle={isEditMode ? `Edit: ${product?.name}` : product?.name || "Product Details"} 
       />
       
       {error && (
-        <div className="mb-6 p-4 text-red-600 bg-red-50 rounded-lg dark:bg-red-900/20 dark:text-red-400">
+        <div className="mb-6 p-4 text-red-600 bg-red-50 rounded-xl border border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800">
           {error}
         </div>
       )}
@@ -198,11 +386,11 @@ export default function ViewEditProductPage() {
                   Cancel
                 </button>
                 <button
-                  onClick={handleSaveChanges}
-                  disabled={isSaving}
+                  onClick={handleUpdate}
+                  disabled={saving}
                   className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
                 >
-                  {isSaving ? (
+                  {saving ? (
                     <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
@@ -211,7 +399,7 @@ export default function ViewEditProductPage() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                   )}
-                  {isSaving ? "Saving..." : "Save Changes"}
+                  {saving ? "Saving..." : "Save Changes"}
                 </button>
               </>
             )}
@@ -222,9 +410,10 @@ export default function ViewEditProductPage() {
       {/* Product Content */}
       <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="p-8">
+          {product && (
           <form className="space-y-8">
             
-            {/* Status Management Section */}
+            {/* Status Management Section - Show only in edit mode */}
             {isEditMode && (
               <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800 p-6">
                 <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-4">Product Status</h3>
@@ -234,7 +423,7 @@ export default function ViewEditProductPage() {
                       Status
                     </label>
                     <select
-                      value={formData?.status || 'draft'}
+                      value={formData?.status ?? 'draft'}
                       onChange={(e) => handleStatusChange(e.target.value as ProductStatus)}
                       className="w-full px-4 py-3 rounded-xl border border-blue-300 dark:border-blue-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                     >
@@ -260,571 +449,55 @@ export default function ViewEditProductPage() {
               </div>
             )}
 
-            {/* Product Description Section */}
-            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-200 dark:border-gray-700">
-              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                  <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                  </svg>
-                  Product Information
-                </h3>
-              </div>
-              <div className="p-6 space-y-6">
-                
-                {/* Basic Info Row */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Product Name *
-                    </label>
-                    {isEditMode ? (
-                      <input
-                        type="text"
-                        name="name"
-                        value={formData?.name || ''}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                        placeholder="Enter product name"
-                      />
-                    ) : (
-                      <div className="px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white">
-                        {product.name}
-                      </div>
-                    )}
-                  </div>
+            {/* Product Description Section - Using Reusable Component */}
+            <ProductDescriptionSection
+              formData={formData}
+              isEditMode={isEditMode}
+              onInputChange={handleInputChange}
+              onArrayChange={handleArrayChange}
+              onCategoryChange={handleCategoryChange}
+              onSubcategoryChange={handleSubcategoryChange}
+              onDimensionsChange={handleDimensionsChange}
+              onGenerateSKU={() => {}} // SKU is read-only in edit mode
+            />
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      SKU
-                    </label>
-                    <div className="px-4 py-3 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-gray-600 dark:text-gray-400">
-                      {product.sku}
-                    </div>
-                  </div>
-                </div>
+            {/* Product Images Section - Using Reusable Component */}
+            <ProductImageSection
+              uploadedImages={formData.images || []}
+              selectedThumbnail={formData.thumbnail || ""}
+              imageUploading={imageUploading}
+              onImageUpload={handleImageUpload}
+              onRemoveImage={handleRemoveImage}
+              onThumbnailSelect={handleThumbnailSelect}
+              isEditMode={isEditMode}
+            />
 
-                {/* Description */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Description *
-                  </label>
-                  {isEditMode ? (
-                    <textarea
-                      name="description"
-                      value={formData?.description || ''}
-                      onChange={handleInputChange}
-                      rows={4}
-                      className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                      placeholder="Enter product description"
-                    />
-                  ) : (
-                    <div className="px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white whitespace-pre-wrap">
-                      {product.description}
-                    </div>
-                  )}
-                </div>
+            {/* Scent Profile Section - Using Reusable Component */}
+            <ScentProfileSection
+              formData={formData}
+              isEditMode={isEditMode}
+              onInputChange={handleInputChange}
+              onScentProfileChange={handleScentProfileChange}
+            />
 
-                {/* Category, Brand, Size Row */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Category *
-                    </label>
-                    {isEditMode ? (
-                      <input
-                        type="text"
-                        name="categoryId"
-                        value={formData?.categoryId || ''}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                      />
-                    ) : (
-                      <div className="px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white">
-                        {product.categoryId}
-                      </div>
-                    )}
-                  </div>
+            {/* Pricing & Availability Section - Using Reusable Component */}
+            <PricingAvailabilitySection
+              formData={formData}
+              isEditMode={isEditMode}
+              onInputChange={handleInputChange}
+            />
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Brand *
-                    </label>
-                    {isEditMode ? (
-                      <input
-                        type="text"
-                        name="brand"
-                        value={formData?.brand || ''}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                      />
-                    ) : (
-                      <div className="px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white">
-                        {product.brand}
-                      </div>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Size *
-                    </label>
-                    {isEditMode ? (
-                      <input
-                        type="text"
-                        name="size"
-                        value={formData?.size || ''}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                      />
-                    ) : (
-                      <div className="px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white">
-                        {product.size}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Gender, Scent Type, Season Row */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Gender
-                    </label>
-                    {isEditMode ? (
-                      <select
-                        name="gender"
-                        value={formData?.gender || 'unisex'}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                      >
-                        <option value="men">Men</option>
-                        <option value="women">Women</option>
-                        <option value="unisex">Unisex</option>
-                      </select>
-                    ) : (
-                      <div className="px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white capitalize">
-                        {product.gender}
-                      </div>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Scent Type
-                    </label>
-                    {isEditMode ? (
-                      <select
-                        name="scentType"
-                        value={formData?.scentType || 'perfume'}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                      >
-                        <option value="perfume">Perfume</option>
-                        <option value="cologne">Cologne</option>
-                        <option value="body-spray">Body Spray</option>
-                        <option value="candle">Candle</option>
-                        <option value="diffuser">Diffuser</option>
-                        <option value="other">Other</option>
-                      </select>
-                    ) : (
-                      <div className="px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white capitalize">
-                        {product.scentType}
-                      </div>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Season
-                    </label>
-                    {isEditMode ? (
-                      <select
-                        name="season"
-                        value={formData?.season || 'year-round'}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                      >
-                        <option value="year-round">Year Round</option>
-                        <option value="spring">Spring</option>
-                        <option value="summer">Summer</option>
-                        <option value="fall">Fall</option>
-                        <option value="winter">Winter</option>
-                      </select>
-                    ) : (
-                      <div className="px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white capitalize">
-                        {product.season?.replace('-', ' ') || 'Year Round'}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Pricing & Inventory Section */}
-            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-200 dark:border-gray-700">
-              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                  <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Pricing & Inventory
-                </h3>
-              </div>
-              <div className="p-6">
-                {/* 3x2 Grid Layout */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  
-                  {/* Row 1: Pricing */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Cost Price ($) *
-                    </label>
-                    {isEditMode ? (
-                      <input
-                        type="number"
-                        name="costPrice"
-                        value={formData?.costPrice || 0}
-                        onChange={handleInputChange}
-                        step="0.01"
-                        min="0"
-                        className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                      />
-                    ) : (
-                      <div className="px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white">
-                        ${product.costPrice?.toFixed(2)}
-                      </div>
-                    )}
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Your cost to acquire this product</p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Selling Price ($) *
-                    </label>
-                    {isEditMode ? (
-                      <input
-                        type="number"
-                        name="price"
-                        value={formData?.price || 0}
-                        onChange={handleInputChange}
-                        step="0.01"
-                        min="0"
-                        className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                      />
-                    ) : (
-                      <div className="px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white">
-                        ${product.price?.toFixed(2)}
-                      </div>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Sale Price ($)
-                    </label>
-                    {isEditMode ? (
-                      <input
-                        type="number"
-                        name="salePrice"
-                        value={formData?.salePrice || ''}
-                        onChange={handleInputChange}
-                        step="0.01"
-                        min="0"
-                        className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                      />
-                    ) : (
-                      <div className="px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white">
-                        {product.salePrice ? `$${product.salePrice.toFixed(2)}` : 'No sale price'}
-                      </div>
-                    )}
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Optional discounted price</p>
-                  </div>
-
-                  {/* Row 2: Stock, Alert, Featured */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Stock Quantity *
-                    </label>
-                    {isEditMode ? (
-                      <input
-                        type="number"
-                        name="stock"
-                        value={formData?.stock || 0}
-                        onChange={handleInputChange}
-                        min="0"
-                        className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                      />
-                    ) : (
-                      <div className="px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white">
-                        {product.stock} units
-                      </div>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Minimum Stock Alert
-                    </label>
-                    {isEditMode ? (
-                      <input
-                        type="number"
-                        name="minStock"
-                        value={formData?.minStock || 0}
-                        onChange={handleInputChange}
-                        min="0"
-                        className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                      />
-                    ) : (
-                      <div className="px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white">
-                        {product.minStock || 0} units
-                      </div>
-                    )}
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Get notified when stock is low</p>
-                  </div>
-
-                  <div>
-                    <div className="space-y-4">
-                      <div className="flex items-center">
-                        <label className="flex items-center cursor-pointer group">
-                          {isEditMode ? (
-                            <>
-                              <input
-                                type="checkbox"
-                                name="isFeatured"
-                                checked={formData?.isFeatured || false}
-                                onChange={handleInputChange}
-                                className="sr-only"
-                              />
-                              <div className="relative">
-                                <div className={`mr-3 flex h-6 w-6 items-center justify-center rounded-lg border-2 transition-all duration-200 ${formData?.isFeatured ? 'border-blue-500 bg-blue-500' : 'border-gray-300 dark:border-gray-600 hover:border-blue-300'}`}>
-                                  {formData?.isFeatured && (
-                                    <svg className="h-4 w-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                    </svg>
-                                  )}
-                                </div>
-                              </div>
-                            </>
-                          ) : (
-                            <div className="relative mr-3">
-                              <div className={`flex h-6 w-6 items-center justify-center rounded-lg border-2 ${product.isFeatured ? 'border-blue-500 bg-blue-500' : 'border-gray-300 dark:border-gray-600'}`}>
-                                {product.isFeatured && (
-                                  <svg className="h-4 w-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                  </svg>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                          <div>
-                            <span className="text-sm font-medium text-gray-900 dark:text-white">Featured Product</span>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">Show this product in featured sections</p>
-                          </div>
-                        </label>
-                      </div>
-
-                      <div className="flex items-center">
-                        <label className="flex items-center cursor-pointer group">
-                          {isEditMode ? (
-                            <>
-                              <input
-                                type="checkbox"
-                                name="taxable"
-                                checked={formData?.taxable || false}
-                                onChange={handleInputChange}
-                                className="sr-only"
-                              />
-                              <div className="relative">
-                                <div className={`mr-3 flex h-6 w-6 items-center justify-center rounded-lg border-2 transition-all duration-200 ${formData?.taxable ? 'border-green-500 bg-green-500' : 'border-gray-300 dark:border-gray-600 hover:border-green-300'}`}>
-                                  {formData?.taxable && (
-                                    <svg className="h-4 w-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                    </svg>
-                                  )}
-                                </div>
-                              </div>
-                            </>
-                          ) : (
-                            <div className="relative mr-3">
-                              <div className={`flex h-6 w-6 items-center justify-center rounded-lg border-2 ${product.taxable ? 'border-green-500 bg-green-500' : 'border-gray-300 dark:border-gray-600'}`}>
-                                {product.taxable && (
-                                  <svg className="h-4 w-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                  </svg>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                          <div>
-                            <span className="text-sm font-medium text-gray-900 dark:text-white">Taxable Product</span>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">Tax will be calculated at checkout</p>
-                          </div>
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Scent Profile Section */}
-            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-200 dark:border-gray-700">
-              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                  <svg className="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
-                  </svg>
-                  Scent Profile & Properties
-                </h3>
-              </div>
-              <div className="p-6 space-y-6">
-                
-                {/* Notes Row */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Top Notes
-                    </label>
-                    {isEditMode ? (
-                      <input
-                        type="text"
-                        value={formData?.scentProfile?.topNotes?.join(', ') || ''}
-                        onChange={(e) => {
-                          const notes = e.target.value.split(',').map(note => note.trim()).filter(Boolean);
-                          setFormData(prev => ({
-                            ...prev,
-                            scentProfile: {
-                              ...prev?.scentProfile,
-                              topNotes: notes,
-                              middleNotes: prev?.scentProfile?.middleNotes || [],
-                              baseNotes: prev?.scentProfile?.baseNotes || []
-                            }
-                          }));
-                        }}
-                        placeholder="e.g., Bergamot, Lemon"
-                        className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                      />
-                    ) : (
-                      <div className="px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white">
-                        {product.scentProfile?.topNotes?.join(', ') || 'Not specified'}
-                      </div>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Middle Notes
-                    </label>
-                    {isEditMode ? (
-                      <input
-                        type="text"
-                        value={formData?.scentProfile?.middleNotes?.join(', ') || ''}
-                        onChange={(e) => {
-                          const notes = e.target.value.split(',').map(note => note.trim()).filter(Boolean);
-                          setFormData(prev => ({
-                            ...prev,
-                            scentProfile: {
-                              ...prev?.scentProfile,
-                              topNotes: prev?.scentProfile?.topNotes || [],
-                              middleNotes: notes,
-                              baseNotes: prev?.scentProfile?.baseNotes || []
-                            }
-                          }));
-                        }}
-                        placeholder="e.g., Lavender, Rose"
-                        className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                      />
-                    ) : (
-                      <div className="px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white">
-                        {product.scentProfile?.middleNotes?.join(', ') || 'Not specified'}
-                      </div>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Base Notes
-                    </label>
-                    {isEditMode ? (
-                      <input
-                        type="text"
-                        value={formData?.scentProfile?.baseNotes?.join(', ') || ''}
-                        onChange={(e) => {
-                          const notes = e.target.value.split(',').map(note => note.trim()).filter(Boolean);
-                          setFormData(prev => ({
-                            ...prev,
-                            scentProfile: {
-                              ...prev?.scentProfile,
-                              topNotes: prev?.scentProfile?.topNotes || [],
-                              middleNotes: prev?.scentProfile?.middleNotes || [],
-                              baseNotes: notes
-                            }
-                          }));
-                        }}
-                        placeholder="e.g., Sandalwood, Musk"
-                        className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                      />
-                    ) : (
-                      <div className="px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white">
-                        {product.scentProfile?.baseNotes?.join(', ') || 'Not specified'}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Longevity & Sillage Row */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Longevity
-                    </label>
-                    {isEditMode ? (
-                      <select
-                        name="longevity"
-                        value={formData?.longevity || 'moderate'}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                      >
-                        <option value="light">Light (1-3 hours)</option>
-                        <option value="moderate">Moderate (3-6 hours)</option>
-                        <option value="long-lasting">Long-lasting (6-12 hours)</option>
-                        <option value="very-long-lasting">Very Long-lasting (12+ hours)</option>
-                      </select>
-                    ) : (
-                      <div className="px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white capitalize">
-                        {product.longevity?.replace('-', ' ') || 'Moderate'}
-                      </div>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Sillage
-                    </label>
-                    {isEditMode ? (
-                      <select
-                        name="sillage"
-                        value={formData?.sillage || 'moderate'}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                      >
-                        <option value="intimate">Intimate</option>
-                        <option value="moderate">Moderate</option>
-                        <option value="strong">Strong</option>
-                        <option value="enormous">Enormous</option>
-                      </select>
-                    ) : (
-                      <div className="px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white capitalize">
-                        {product.sillage || 'Moderate'}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
+            {/* SEO & Collections Section - Using Reusable Component */}
+            <SEOCollectionsSection
+              formData={formData}
+              isEditMode={isEditMode}
+              onInputChange={handleInputChange}
+              onArrayChange={handleArrayChange}
+              onCollectionToggle={handleCollectionToggle}
+            />
             
           </form>
+        )}
         </div>
       </div>
 

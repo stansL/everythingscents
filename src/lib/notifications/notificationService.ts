@@ -107,7 +107,7 @@ class NotificationService {
       priority: request.priority,
       title: request.title,
       message: request.message,
-      actionUrl: request.actionUrl,
+      actionUrl: request.actionUrl || '',
       data: request.data,
     };
 
@@ -275,12 +275,14 @@ class NotificationService {
     await emailService.sendEmail(emailPayload);
 
     // Send SMS confirmation
-    const smsMessage = smsService.createPaymentConfirmationMessage(
-      clientName,
-      amount,
-      reference
-    );
-    await smsService.sendSMS({ phoneNumber: userPhone, message: smsMessage });
+    if (userPhone) {
+      const smsMessage = smsService.createPaymentConfirmationMessage(
+        clientName,
+        amount,
+        reference
+      );
+      await smsService.sendSMS({ phoneNumber: userPhone, message: smsMessage });
+    }
 
     return {
       success: true,
