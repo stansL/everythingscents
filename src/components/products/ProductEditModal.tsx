@@ -18,6 +18,7 @@ const ProductEditModal: React.FC<ProductEditModalProps> = ({
 }) => {
   const [formData, setFormData] = useState({
     name: product.name,
+    variant: product.variant || "",
     description: product.description,
     price: product.price,
     salePrice: product.salePrice || 0,
@@ -104,14 +105,25 @@ const ProductEditModal: React.FC<ProductEditModalProps> = ({
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Product Name *
               </label>
-              <input
-                type="text"
-                name="name"
-                value={formData.name}
-                onChange={handleInputChange}
-                required
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              />
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="text"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleInputChange}
+                  required
+                  placeholder="Name"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+                <input
+                  type="text"
+                  name="variant"
+                  value={formData.variant}
+                  onChange={handleInputChange}
+                  placeholder="Variant"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+              </div>
             </div>
 
             <div className="md:col-span-2">

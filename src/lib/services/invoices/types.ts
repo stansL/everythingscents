@@ -56,6 +56,7 @@ export interface InvoiceItem {
 
 export interface Invoice {
   id: string;                    // e.g., "323534" (# added in UI display only)
+  orderId?: string;              // Reference to the order that generated this invoice
   clientName: string;           // e.g., "Lindsey Curtis"
   clientEmail?: string;         // For customer search
   issueDate: Date;              // August 7, 2028
@@ -147,6 +148,7 @@ export interface PaginationOptions {
 }
 
 export interface InvoiceFormData {
+  orderId?: string; // Reference to the order that generated this invoice
   clientName: string;
   clientEmail: string;
   clientAddress?: string;

@@ -14,6 +14,7 @@ export default function CategoriesPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [isRecalculating, setIsRecalculating] = useState(false);
 
   useEffect(() => {
     loadCategories();
@@ -97,6 +98,27 @@ export default function CategoriesPage() {
     }
   };
 
+  const handleRecalculateCounts = async () => {
+    if (!confirm('Recalculate product counts for all categories? This will query all products and may take a moment.')) {
+      return;
+    }
+
+    setIsRecalculating(true);
+    try {
+      const response = await CategoryService.recalculateProductCounts();
+      if (response.success) {
+        alert(`Success! ${response.data.updated} categories updated, ${response.data.failed} failed.`);
+        setRefreshKey(k => k + 1);
+      } else {
+        alert(response.message || 'Failed to recalculate counts');
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to recalculate counts');
+    } finally {
+      setIsRecalculating(false);
+    }
+  };
+
   // Filter to get only top-level categories for parent selector
   const topLevelCategories = categories.filter(cat => !cat.parentId);
 
@@ -115,12 +137,21 @@ export default function CategoriesPage() {
               Manage your product category hierarchy
             </p>
           </div>
-          <button
-            onClick={handleCreate}
-            className="rounded-lg bg-blue-700 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
-          >
-            + Create Category
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={handleRecalculateCounts}
+              disabled={isRecalculating || loading}
+              className="rounded-lg bg-green-700 px-5 py-2.5 text-sm font-medium text-white hover:bg-green-800 focus:outline-none focus:ring-4 focus:ring-green-300 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-green-600 dark:hover:bg-green-700 dark:focus:ring-green-800"
+            >
+              {isRecalculating ? '⏳ Recalculating...' : '🔄 Recalculate Counts'}
+            </button>
+            <button
+              onClick={handleCreate}
+              className="rounded-lg bg-blue-700 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
+            >
+              + Create Category
+            </button>
+          </div>
         </div>
 
         {/* Error State */}

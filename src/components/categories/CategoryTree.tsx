@@ -83,7 +83,7 @@ const CategoryNode: React.FC<CategoryNodeProps> = ({
 
         {/* Product Count Badge */}
         <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
-          0 products
+          {category.productCount || 0} {category.productCount === 1 ? 'product' : 'products'}
         </span>
 
         {/* Action Buttons */}

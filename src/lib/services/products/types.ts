@@ -85,6 +85,7 @@ export interface SupplierInfo {
 export interface Product extends BaseEntity {
   // Basic Product Information
   name: string;
+  variant?: string; // Product variant (e.g., "Man", "Milestone", "Oud", "Private Key to My Life")
   description: string;
   sku: string;
   categoryId: string;

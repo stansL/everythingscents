@@ -458,4 +458,86 @@ export class CategoryService {
       return ServiceUtils.error(errorMessage);
     }
   }
+
+  /**
+   * Recalculate product counts for all categories
+   * This queries the products collection to get accurate counts
+   */
+  static async recalculateProductCounts(): Promise<ServiceResponse<{ updated: number; failed: number }>> {
+    try {
+      const categoriesRef = collection(db, this.COLLECTION);
+      const categoriesSnapshot = await getDocs(categoriesRef);
+      
+      const productsRef = collection(db, COLLECTIONS.PRODUCTS);
+      
+      let updated = 0;
+      let failed = 0;
+      
+      const batch = writeBatch(db);
+      let batchCount = 0;
+      const MAX_BATCH_SIZE = 500; // Firestore batch limit
+      
+      for (const categoryDoc of categoriesSnapshot.docs) {
+        try {
+          const categoryId = categoryDoc.id;
+          const categoryData = categoryDoc.data();
+          const isSubcategory = !!categoryData.parentId;
+          
+          // Query products based on whether this is a parent category or subcategory
+          let productsQuery;
+          if (isSubcategory) {
+            // For subcategories, count products where subcategoryId matches
+            productsQuery = query(
+              productsRef,
+              where('subcategoryId', '==', categoryId),
+              where('isActive', '==', true)
+            );
+          } else {
+            // For parent categories, count products where categoryId matches
+            productsQuery = query(
+              productsRef,
+              where('categoryId', '==', categoryId),
+              where('isActive', '==', true)
+            );
+          }
+          
+          const productsSnapshot = await getDocs(productsQuery);
+          const productCount = productsSnapshot.size;
+          
+          // Update the category with the new count
+          const categoryRef = doc(db, this.COLLECTION, categoryId);
+          batch.update(categoryRef, {
+            productCount,
+            updatedAt: Timestamp.now(),
+          });
+          
+          batchCount++;
+          updated++;
+          
+          // Commit batch if we reach the limit
+          if (batchCount >= MAX_BATCH_SIZE) {
+            await batch.commit();
+            batchCount = 0;
+          }
+        } catch (error) {
+          console.error(`Failed to update count for category ${categoryDoc.id}:`, error);
+          failed++;
+        }
+      }
+      
+      // Commit any remaining updates
+      if (batchCount > 0) {
+        await batch.commit();
+      }
+      
+      return ServiceUtils.success(
+        { updated, failed },
+        `Product counts recalculated: ${updated} updated, ${failed} failed`
+      );
+    } catch (error) {
+      const errorMessage = ServiceUtils.handleError(error, 'recalculate product counts');
+      return ServiceUtils.error(errorMessage);
+    }
+  }
 }
+

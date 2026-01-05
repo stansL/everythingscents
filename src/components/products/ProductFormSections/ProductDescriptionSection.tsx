@@ -65,22 +65,32 @@ export default function ProductDescriptionSection({
       </div>
       <div className="p-6">
         <div className="space-y-6">
-          {/* Row 1: Product Name, Category, Subcategory */}
+          {/* Row 1: Product Name & Variant, Category, Subcategory */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Product Name */}
+            {/* Product Name & Variant in same cell */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Product Name <span className="text-red-500">*</span>
               </label>
-              <input
-                type="text"
-                name="name"
-                value={formData.name || ""}
-                onChange={onInputChange}
-                placeholder="Enter product name"
-                required
-                className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:border-gray-400 dark:hover:border-gray-500"
-              />
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="text"
+                  name="name"
+                  value={formData.name || ""}
+                  onChange={onInputChange}
+                  placeholder="Name"
+                  required
+                  className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:border-gray-400 dark:hover:border-gray-500"
+                />
+                <input
+                  type="text"
+                  name="variant"
+                  value={formData.variant || ""}
+                  onChange={onInputChange}
+                  placeholder="Variant"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:border-gray-400 dark:hover:border-gray-500"
+                />
+              </div>
             </div>
 
             {/* Category & Subcategory - Takes up 2 columns */}

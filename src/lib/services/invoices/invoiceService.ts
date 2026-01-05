@@ -121,6 +121,57 @@ export class InvoiceService {
     }
   }
 
+  // Get invoice by order ID
+  static async getInvoiceByOrderId(orderId: string): Promise<ServiceResponse<Invoice | null>> {
+    try {
+      if (USE_FIREBASE) {
+        // Firebase implementation - query by orderId field
+        try {
+          const invoices = await FirestoreService.query<Invoice>(COLLECTION_NAME, [
+            { field: 'orderId', operator: '==', value: orderId }
+          ]);
+          
+          if (!invoices || invoices.length === 0) {
+            return {
+              success: true,
+              data: null,
+              message: 'No invoice found for this order'
+            };
+          }
+          
+          // Return the first matching invoice (should only be one per order)
+          return {
+            success: true,
+            data: invoices[0],
+            message: 'Invoice retrieved successfully'
+          };
+        } catch (error) {
+          console.error('Firebase query error:', error);
+          return {
+            success: false,
+            error: 'Failed to query invoice by orderId'
+          };
+        }
+      } else {
+        // Mock data fallback
+        await simulateDelay(200);
+        const invoice = this.invoices.find(inv => inv.orderId === orderId);
+        
+        return {
+          success: true,
+          data: invoice || null,
+          message: invoice ? 'Invoice retrieved successfully' : 'No invoice found for this order'
+        };
+      }
+    } catch (error) {
+      console.error('Get invoice by orderId error:', error);
+      return {
+        success: false,
+        error: 'Failed to retrieve invoice by orderId'
+      };
+    }
+  }
+
   // Create new invoice
   static async createInvoice(invoiceData: InvoiceFormData): Promise<ServiceResponse<Invoice>> {
     try {
@@ -128,6 +179,7 @@ export class InvoiceService {
       
       const newInvoice: Invoice = {
         id: `#${Date.now()}`, // Simple ID generation
+        orderId: invoiceData.orderId, // Link to originating order
         clientName: invoiceData.clientName,
         clientEmail: invoiceData.clientEmail,
         issueDate: new Date(),

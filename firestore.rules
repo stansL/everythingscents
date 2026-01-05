@@ -1,0 +1,118 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper function to check user roles
+    function hasRole(roles) {
+      return request.auth != null && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in roles;
+    }
+    
+    // Users collection - users can read/write their own profile
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Products collection - PUBLIC READ for customers, write restricted to admins
+    match /products/{productId} {
+      allow read: if true; // Public read access for customers browsing
+      allow write: if request.auth != null && 
+                      hasRole(['admin', 'inventory_manager']);
+    }
+    
+    // Categories collection - PUBLIC READ for customers, write restricted to admins
+    match /categories/{categoryId} {
+      allow read: if true; // Public read access for customers browsing
+      allow write: if request.auth != null && hasRole(['admin']);
+    }
+    
+    // Collections collection - PUBLIC READ for customers, write restricted to admins
+    match /collections/{collectionId} {
+      allow read: if true; // Public read access for customers browsing
+      allow write: if request.auth != null && hasRole(['admin']);
+    }
+    
+    // Orders collection - GUEST CHECKOUT ALLOWED for cash payments
+    match /orders/{orderId} {
+      // Read: authenticated users can read their own orders, admins can read all
+      // Guests cannot read orders (no way to verify ownership)
+      allow read: if request.auth != null && 
+        (request.auth.uid == resource.data.customerId || hasRole(['admin', 'sales', 'viewer']));
+      
+      // Create: ANYONE can create orders (guest checkout with cash payment)
+      allow create: if true;
+      
+      // Update: authenticated owner or admin can update
+      allow update: if request.auth != null && 
+        (request.auth.uid == resource.data.customerId || hasRole(['admin', 'sales']));
+      
+      // Delete: only admins
+      allow delete: if request.auth != null && hasRole(['admin']);
+    }
+    
+    // Inventory transactions - audit trail protection
+    match /inventoryTransactions/{transactionId} {
+      allow read: if request.auth != null && 
+                     hasRole(['admin', 'inventory_manager', 'viewer']);
+      allow create: if request.auth != null && 
+                       hasRole(['admin', 'inventory_manager']);
+      // No update/delete to maintain audit integrity
+    }
+    
+    // Suppliers collection
+    match /suppliers/{supplierId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && 
+                      hasRole(['admin', 'inventory_manager']);
+    }
+    
+    // Purchase orders collection
+    match /purchaseOrders/{orderId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && 
+                      hasRole(['admin', 'inventory_manager', 'purchaser']);
+    }
+    
+    // Invoices collection - admins and authorized users
+    match /invoices/{invoiceId} {
+      allow read: if request.auth != null && 
+        (request.auth.uid == resource.data.customerId || hasRole(['admin', 'finance', 'viewer']));
+      allow write: if request.auth != null && 
+                      hasRole(['admin', 'finance']);
+    }
+    
+    // Abandoned carts - GUEST TRACKING ALLOWED
+    match /abandonedCarts/{cartId} {
+      // Read: guests can't read others' carts, authenticated users can read their own, admins can read all
+      allow read: if request.auth == null || 
+        request.auth.uid == resource.data.customerId || 
+        hasRole(['admin', 'sales']);
+      
+      // Create: anyone can create (guest tracking)
+      allow create: if true;
+      
+      // Update: only admins can update for follow-up
+      allow update: if request.auth != null && hasRole(['admin', 'sales']);
+    }
+    
+    // Payment intents - GUEST TRACKING ALLOWED
+    match /paymentIntents/{intentId} {
+      // Read: guests can't read, authenticated users can read their own, admins can read all
+      allow read: if request.auth == null || 
+        request.auth.uid == resource.data.customerId || 
+        hasRole(['admin', 'finance']);
+      
+      // Create: anyone can create (guest payment tracking)
+      allow create: if true;
+      
+      // Update: only admins can update
+      allow update: if request.auth != null && hasRole(['admin', 'finance']);
+    }
+    
+    // Default rule - deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

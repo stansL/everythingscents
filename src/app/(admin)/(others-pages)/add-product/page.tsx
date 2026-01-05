@@ -70,6 +70,7 @@ export default function AddProductPage() {
 
   const [formData, setFormData] = useState<ProductCreateInput>({
     name: "",
+    variant: "",
     description: "",
     costPrice: 0,
     price: 0,

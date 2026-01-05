@@ -361,6 +361,81 @@ export class OrderService {
   static async updateOrderStatus(orderId: string, status: OrderStatus): Promise<ServiceResponse<Order>> {
     return this.updateOrder(orderId, { status });
   }
+
+  /**
+   * Confirm order and auto-generate invoice
+   * This is the key method that triggers invoice creation
+   * @param orderId - The order ID to confirm
+   * @param isPaid - Whether the order has been paid (true for immediate payment, false for pay later)
+   * @returns The confirmed order with invoiceId populated
+   */
+  static async confirmOrder(orderId: string, isPaid: boolean = false): Promise<ServiceResponse<Order>> {
+    try {
+      // Get the order
+      const orderResult = await this.getOrder(orderId);
+      if (!orderResult.success || !orderResult.data) {
+        return {
+          success: false,
+          error: orderResult.error || 'Order not found',
+        };
+      }
+
+      const order = orderResult.data;
+
+      // Check if order is already confirmed
+      if (order.status !== OrderStatus.PENDING) {
+        return {
+          success: false,
+          error: `Order is already ${order.status}. Only pending orders can be confirmed.`,
+        };
+      }
+
+      // Import InvoiceService dynamically to avoid circular dependency
+      const { InvoiceService } = await import('../invoices/invoiceService');
+
+      // Create invoice from order
+      const invoiceData = {
+        orderId: order.id,
+        clientName: order.customerName,
+        clientEmail: order.customerEmail || '',
+        issueDate: new Date(),
+        dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+        amount: order.total,
+        status: isPaid ? ('paid' as const) : ('unpaid' as const),
+        category: 'order' as const,
+        description: `Invoice for order ${order.orderNumber}`,
+        items: order.items,
+        subtotal: order.subtotal,
+        tax: order.tax,
+        discount: order.discountPercentage,
+      };
+
+      const invoiceResult = await InvoiceService.createInvoice(invoiceData);
+      
+      if (!invoiceResult.success || !invoiceResult.data) {
+        return {
+          success: false,
+          error: invoiceResult.error || 'Failed to create invoice',
+        };
+      }
+
+      // Update order with invoice ID and confirm status
+      const updateResult = await this.updateOrder(orderId, {
+        invoiceId: invoiceResult.data.id,
+        convertedAt: new Date(),
+        status: OrderStatus.CONFIRMED,
+        isPaid: isPaid,
+      });
+
+      return updateResult;
+    } catch (error) {
+      console.error('Error confirming order:', error);
+      return {
+        success: false,
+        error: 'Failed to confirm order and generate invoice',
+      };
+    }
+  }
 }
 
 // Singleton export for convenience

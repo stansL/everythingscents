@@ -1,6 +1,12 @@
 import { FirestoreService, QueryCondition } from "../../firebase/firestore";
 import { ServiceResponse, ServiceUtils, PaginatedResult, PaginationOptions } from "../common/types";
 import { Product, ProductFilter, ProductCreateInput, ProductUpdateInput } from "./types";
+import {
+  incrementProductCountsForCategories,
+  decrementProductCountsForCategories,
+  updateProductCountsForCategoryChange,
+  updateProductCountsForStatusChange,
+} from "../categories/categoryCountUtils";
 
 const COLLECTION_NAME = "products";
 
@@ -10,6 +16,14 @@ export class ProductService {
     try {
       const sanitizedData = ServiceUtils.sanitizeData(productData);
       const productId = await FirestoreService.create(COLLECTION_NAME, sanitizedData);
+      
+      // Update category counts if product is active
+      if (sanitizedData.isActive !== false && sanitizedData.categoryId) {
+        await incrementProductCountsForCategories(
+          sanitizedData.categoryId,
+          sanitizedData.subcategoryId
+        );
+      }
       
       return ServiceUtils.createSuccessResponse(productId, "Product created successfully");
     } catch (error) {
@@ -33,8 +47,48 @@ export class ProductService {
   // Update product
   static async updateProduct(id: string, updateData: ProductUpdateInput): Promise<ServiceResponse<boolean>> {
     try {
+      // Get the current product to check what changed
+      const currentProductResponse = await this.getProductById(id);
+      if (!currentProductResponse.success || !currentProductResponse.data) {
+        return ServiceUtils.createErrorResponse("Product not found");
+      }
+      const currentProduct = currentProductResponse.data;
+      
       const sanitizedData = ServiceUtils.sanitizeData(updateData);
       const success = await FirestoreService.update(COLLECTION_NAME, id, sanitizedData);
+      
+      if (success) {
+        // Handle category changes
+        const categoryChanged = sanitizedData.categoryId !== undefined && 
+                               sanitizedData.categoryId !== currentProduct.categoryId;
+        const subcategoryChanged = sanitizedData.subcategoryId !== undefined && 
+                                  sanitizedData.subcategoryId !== currentProduct.subcategoryId;
+        
+        if (categoryChanged || subcategoryChanged) {
+          // Only update counts if product is active
+          if (currentProduct.isActive && sanitizedData.isActive !== false) {
+            await updateProductCountsForCategoryChange(
+              currentProduct.categoryId,
+              sanitizedData.categoryId || currentProduct.categoryId,
+              currentProduct.subcategoryId,
+              sanitizedData.subcategoryId !== undefined ? sanitizedData.subcategoryId : currentProduct.subcategoryId
+            );
+          }
+        }
+        
+        // Handle active status changes
+        const statusChanged = sanitizedData.isActive !== undefined && 
+                            sanitizedData.isActive !== currentProduct.isActive;
+        
+        if (statusChanged) {
+          await updateProductCountsForStatusChange(
+            sanitizedData.categoryId || currentProduct.categoryId,
+            sanitizedData.subcategoryId !== undefined ? sanitizedData.subcategoryId : currentProduct.subcategoryId,
+            currentProduct.isActive,
+            sanitizedData.isActive!
+          );
+        }
+      }
       
       return ServiceUtils.createSuccessResponse(success, "Product updated successfully");
     } catch (error) {
@@ -46,7 +100,22 @@ export class ProductService {
   // Delete product
   static async deleteProduct(id: string): Promise<ServiceResponse<boolean>> {
     try {
+      // Get the product before deleting to update category counts
+      const productResponse = await this.getProductById(id);
+      if (!productResponse.success || !productResponse.data) {
+        return ServiceUtils.createErrorResponse("Product not found");
+      }
+      const product = productResponse.data;
+      
       const success = await FirestoreService.delete(COLLECTION_NAME, id);
+      
+      // Decrement category counts if product was active
+      if (success && product.isActive && product.categoryId) {
+        await decrementProductCountsForCategories(
+          product.categoryId,
+          product.subcategoryId
+        );
+      }
       
       return ServiceUtils.createSuccessResponse(success, "Product deleted successfully");
     } catch (error) {
